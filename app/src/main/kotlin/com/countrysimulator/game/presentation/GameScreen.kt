@@ -21,7 +21,7 @@ import com.countrysimulator.game.domain.GovernmentType
 fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val darkColorScheme = darkColorScheme(
+    val darkColorScheme = darkColorScheme().copy(
         primary = androidx.compose.ui.graphics.Color(0xFF1a237e),
         secondary = androidx.compose.ui.graphics.Color(0xFFffd700),
         tertiary = androidx.compose.ui.graphics.Color(0xFF7c4dff),
