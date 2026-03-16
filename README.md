@@ -198,9 +198,119 @@ income = baseIncome * economyMultiplier * happinessFactor
 | Technology | 1500 | +12 Technology |
 | Happiness | 800 | +10 Happiness |
 
-## 📄 License
+## 🚀 Future Features Roadmap
 
-MIT License - See [LICENSE](LICENSE) file for details.
+A curated list of 55 potential features for future versions. Contributions welcome!
+
+### 🏛️ Government & Politics (v5.0)
+- [ ] **Political Parties System** - Multiple parties with different ideologies competing for power
+- [ ] **Election Mechanics** - Campaign, debate, and win/lose elections based on performance
+- [ ] **Corruption System** - High corruption reduces efficiency and triggers scandals
+- [ ] **Constitution & Laws** - Enact specific laws (tax rates, military draft, welfare)
+- [ ] **Political Factions** - Internal groups that support or oppose your policies
+- [ ] **Assassination Attempts** - Random events targeting leaders in unstable regimes
+- [ ] **Succession Crisis** - Handle leadership transitions in monarchies/dictatorships
+- [ ] **Referendum System** - Let citizens vote on major decisions
+- [ ] **Cabinet Ministers** - Appoint ministers affecting different stat growth rates
+- [ ] **Propaganda System** - Influence happiness and stability through media control
+
+### 🌍 Diplomacy & International (v5.0-v6.0)
+- [ ] **United Nations Organization** - Join international body with voting and resolutions
+- [ ] **Embargoes & Sanctions** - Economic pressure tool against hostile nations
+- [ ] **Foreign Aid System** - Give/receive aid affecting relations and soft power
+- [ ] **Intelligence Agencies** - Spy on other nations, steal tech, sabotage
+- [ ] **Covert Operations** - Fund rebels, stage coups in other countries
+- [ ] **Peacekeeping Missions** - Deploy troops internationally for stability
+- [ ] **International Courts** - Face war crimes trials or sue other nations
+- [ ] **Cultural Exchange Programs** - Boost relations through soft power
+- [ ] **Refugee Crises** - Handle incoming/outgoing refugee flows
+- [ ] **Territory Disputes** - Border conflicts that can escalate to war
+
+### ⚔️ Military & Warfare (v6.0)
+- [ ] **Military Branches** - Army, Navy, Air Force with separate stats
+- [ ] **Nuclear Weapons Program** - Develop WMDs with international consequences
+- [ ] **Military Doctrine** - Choose defensive, offensive, or balanced strategies
+- [ ] **War Theater System** - Multiple fronts with separate battle calculations
+- [ ] **Mercenary Hiring** - Temporary military boost at high cost
+- [ ] **Veteran System** - Units gain experience and become more effective
+- [ ] **Military Bases Abroad** - Project power globally
+- [ ] **Arms Race** - Compete with rivals in military spending
+- [ ] **Guerrilla Warfare** - Occupation mechanics in conquered territories
+- [ ] **Ceasefire & Peace Treaties** - Negotiated war endings with terms
+
+### 💰 Economy & Trade (v5.0)
+- [ ] **Multiple Currencies** - Exchange rates, currency manipulation
+- [ ] **Stock Market** - Invest treasury for high-risk returns
+- [ ] **National Debt System** - Borrow money with interest payments
+- [ ] **Trade Routes** - Establish permanent trade connections
+- [ ] **Resource Extraction** - Mines, oil wells, farms as buildings
+- [ ] **Manufacturing Sector** - Convert resources to goods for export
+- [ ] **Tourism Industry** - Generate income from foreign visitors
+- [ ] **Black Market** - Illegal trade with risks and rewards
+- [ ] **Economic Unions** - Join trade blocs for bonuses
+- [ ] **Inflation/Deflation** - Economic conditions affecting prices
+
+### 🏗️ Infrastructure & Development (v6.0)
+- [ ] **Building System** - Construct buildings with unique effects
+- [ ] **City Development** - Multiple cities with individual stats
+- [ ] **Transportation Networks** - Roads, railways, airports boosting economy
+- [ ] **Power Plants** - Different energy sources with pros/cons
+- [ ] **Housing Projects** - Affect population growth and happiness
+- [ ] **Research Labs** - Boost technology gain rate
+- [ ] **Hospitals** - Improve healthcare and population growth
+- [ ] **Schools & Universities** - Education affects tech and economy
+- [ ] **Monuments & Wonders** - Unique buildings with special effects
+- [ ] **Disaster Preparedness** - Reduce natural disaster impact
+
+### 🔬 Technology & Research (v7.0)
+- [ ] **Tech Tree System** - Unlock advanced technologies progressively
+- [ ] **Research Projects** - Choose specific areas to focus on
+- [ ] **Space Program** - Prestige project with high cost/reward
+- [ ] **AI Development** - Future tech with unknown consequences
+- [ ] **Gene Editing** - Healthcare boost with ethical concerns
+- [ ] **Renewable Energy** - Clean tech reducing environmental impact
+- [ ] **Cyber Warfare** - Digital attack/defense capabilities
+- [ ] **Surveillance State** - Security vs. privacy tradeoff
+- [ ] **Clone Technology** - Population boost with moral issues
+- [ ] **Time Research** - Endgame technology with game-changing effects
+
+### 👥 Population & Society (v5.0-v6.0)
+- [ ] **Age Demographics** - Young, working-age, elderly populations
+- [ ] **Immigration Policy** - Open, restricted, or closed borders
+- [ ] **Social Classes** - Upper, middle, lower class with different needs
+- [ ] **Religion System** - State religion, religious freedom, or atheism
+- [ ] **Language Policy** - Official languages affecting unity
+- [ ] **Cultural Heritage** - Preserve traditions vs. modernization
+- [ ] **Sports & Entertainment** - Boost happiness through events
+- [ ] **Media Freedom** - Press freedom affecting transparency
+- [ ] **Crime Organizations** - Mafia, cartels affecting crime stats
+- [ ] **Social Movements** - Environmental, labor, civil rights movements
+
+### 🎯 Game Modes & Challenges (v7.0)
+- [ ] **Scenario Mode** - Historical or fictional starting situations
+- [ ] **Endless Mode** - No game over, just survive as long as possible
+- [ ] **Speed Run Mode** - Achieve goals in minimum turns
+- [ ] **Ironman Mode** - Single save, permadeath
+- [ ] **Multiplayer** - Play against friends online
+- [ ] **Leaderboards** - Global rankings by score, turns survived
+- [ ] **Achievements System** - Unlock badges for accomplishments
+- [ ] **Daily Challenges** - Unique scenarios each day
+- [ ] **Custom Scenarios** - Create and share your own scenarios
+- [ ] **Tutorial Mode** - Interactive learning for new players
+
+### 🎨 UI/UX & Quality of Life
+- [ ] **Dark/Light Theme Toggle** - User preference support
+- [ ] **Stat Graphs** - Visual history of your nation's performance
+- [ ] **Event Log** - Full history of all events and decisions
+- [ ] **Comparison View** - Compare your stats with AI nations
+- [ ] **Prediction Tool** - See projected outcomes of decisions
+- [ ] **Auto-Save** - Multiple save slots with timestamps
+- [ ] **Speed Control** - Adjust turn animation speed
+- [ ] **Notifications** - Alerts for critical events
+- [ ] **Accessibility Options** - Font size, colorblind modes
+- [ ] **Statistics Dashboard** - End-game summary with scores
+
+---
 
 ## 🤝 Contributing
 
