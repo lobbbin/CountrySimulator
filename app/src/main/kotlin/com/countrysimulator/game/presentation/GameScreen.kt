@@ -354,7 +354,7 @@ fun StatBar(label: String, value: Int, max: Int, color: Int) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
         )
         LinearProgressIndicator(
-            progress = { progress },
+            progress = progress,
             modifier = Modifier
                 .weight(1f)
                 .height(16.dp),

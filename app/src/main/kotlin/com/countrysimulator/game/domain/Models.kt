@@ -23,7 +23,8 @@ data class Country(
     val stats: CountryStats,
     val year: Int = 2024,
     val treasury: Int = 10000,
-    val turnCount: Int = 0
+    val turnCount: Int = 0,
+    val eventHistory: List<String> = emptyList()
 )
 
 data class GameEvent(
