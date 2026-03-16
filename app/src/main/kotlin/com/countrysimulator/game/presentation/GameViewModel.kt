@@ -40,13 +40,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadSavedGame() {
         viewModelScope.launch {
-            repository.loadGame().collect { savedCountry ->
-                if (savedCountry != null) {
-                    val income = GameLogic.calculateTurnIncome(savedCountry)
+            repository.loadGame().collect { savedGameState ->
+                if (savedGameState != null) {
+                    val income = GameLogic.calculateTurnIncome(savedGameState.country)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         hasActiveGame = true,
-                        gameState = GameState(country = savedCountry),
+                        gameState = savedGameState,
                         incomeThisTurn = income
                     )
                 } else {
@@ -60,14 +60,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startNewGame(name: String, governmentType: GovernmentType) {
-        val newCountry = GameLogic.generateInitialCountry(name, governmentType)
+        val (newCountry, aiNations) = GameLogic.generateInitialCountry(name, governmentType)
+        val newGameState = GameState(
+            country = newCountry,
+            aiNations = aiNations
+        )
 
         viewModelScope.launch {
-            repository.saveGame(newCountry)
+            repository.saveGame(newGameState)
             _uiState.value = _uiState.value.copy(
                 hasActiveGame = true,
                 showNewGameDialog = false,
-                gameState = GameState(country = newCountry),
+                gameState = newGameState,
                 incomeThisTurn = GameLogic.calculateTurnIncome(newCountry)
             )
         }
@@ -75,10 +79,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun nextTurn() {
         val currentState = _uiState.value.gameState ?: return
-        val newState = GameLogic.processTurn(currentState.country)
+        val newState = GameLogic.processTurn(currentState)
 
         viewModelScope.launch {
-            repository.saveGame(newState.country)
+            repository.saveGame(newState)
             _uiState.value = _uiState.value.copy(
                 gameState = newState,
                 showEventDialog = newState.lastEvent != null,
@@ -105,11 +109,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             treasury = newTreasury,
             resources = newResources
         )
+        val newState = currentState.copy(country = updatedCountry)
 
         viewModelScope.launch {
-            repository.saveGame(updatedCountry)
+            repository.saveGame(newState)
             _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = updatedCountry),
+                gameState = newState,
                 showEventDialog = false,
                 currentEvent = null,
                 incomeThisTurn = GameLogic.calculateTurnIncome(updatedCountry)
@@ -117,214 +122,142 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun investInEconomy() {
+    private fun updateCountry(update: (Country) -> Country) {
         val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 1000) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(economy = (currentState.country.stats.economy + 8).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 1000
-        )
+        val newCountry = update(currentState.country)
+        val newState = currentState.copy(country = newCountry)
 
         viewModelScope.launch {
-            repository.saveGame(newCountry)
+            repository.saveGame(newState)
             _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry),
-                incomeThisTurn = GameLogic.calculateTurnIncome(newCountry)
+                gameState = newState,
+                incomeThisTurn = GameLogic.calculateTurnIncome(newCountry) // Recalculate income in case stats changed
+            )
+        }
+    }
+
+    fun investInEconomy() {
+        updateCountry { country ->
+            if (country.treasury < 1000) country
+            else country.copy(
+                stats = country.stats.copy(economy = (country.stats.economy + 8).coerceAtMost(100)),
+                treasury = country.treasury - 1000
             )
         }
     }
 
     fun recruitMilitary() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 800) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(military = (currentState.country.stats.military + 10).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 800
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 800) country
+            else country.copy(
+                stats = country.stats.copy(military = (country.stats.military + 10).coerceAtMost(100)),
+                treasury = country.treasury - 800
             )
         }
     }
 
     fun improveInfrastructure() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 1200) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(stability = (currentState.country.stats.stability + 8).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 1200
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 1200) country
+            else country.copy(
+                stats = country.stats.copy(stability = (country.stats.stability + 8).coerceAtMost(100)),
+                treasury = country.treasury - 1200
             )
         }
     }
 
     fun investInTechnology() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 1500) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(technology = (currentState.country.stats.technology + 12).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 1500
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 1500) country
+            else country.copy(
+                stats = country.stats.copy(technology = (country.stats.technology + 12).coerceAtMost(100)),
+                treasury = country.treasury - 1500
             )
         }
     }
 
     fun improveHappiness() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 800) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(happiness = (currentState.country.stats.happiness + 10).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 800
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry),
-                incomeThisTurn = GameLogic.calculateTurnIncome(newCountry)
+        updateCountry { country ->
+            if (country.treasury < 800) country
+            else country.copy(
+                stats = country.stats.copy(happiness = (country.stats.happiness + 10).coerceAtMost(100)),
+                treasury = country.treasury - 800
             )
         }
     }
 
     fun investInEducation() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 1200) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(education = (currentState.country.stats.education + 10).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 1200
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 1200) country
+            else country.copy(
+                stats = country.stats.copy(education = (country.stats.education + 10).coerceAtMost(100)),
+                treasury = country.treasury - 1200
             )
         }
     }
 
     fun investInHealthcare() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 1000) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(healthcare = (currentState.country.stats.healthcare + 10).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 1000
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 1000) country
+            else country.copy(
+                stats = country.stats.copy(healthcare = (country.stats.healthcare + 10).coerceAtMost(100)),
+                treasury = country.treasury - 1000
             )
         }
     }
 
     fun improveEnvironment() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 1500) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(environment = (currentState.country.stats.environment + 10).coerceAtMost(100)),
-            treasury = currentState.country.treasury - 1500
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 1500) country
+            else country.copy(
+                stats = country.stats.copy(environment = (country.stats.environment + 10).coerceAtMost(100)),
+                treasury = country.treasury - 1500
             )
         }
     }
 
     fun fightCrime() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 800) return
-
-        val newCountry = currentState.country.copy(
-            stats = currentState.country.stats.copy(crime = (currentState.country.stats.crime - 10).coerceAtLeast(0)),
-            treasury = currentState.country.treasury - 800
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 800) country
+            else country.copy(
+                stats = country.stats.copy(crime = (country.stats.crime - 10).coerceAtLeast(0)),
+                treasury = country.treasury - 800
             )
         }
     }
 
     fun buyFood() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 500) return
-
-        val newCountry = currentState.country.copy(
-            resources = currentState.country.resources.copy(
-                food = (currentState.country.resources.food + 50).coerceAtMost(currentState.country.resources.maxFood)
-            ),
-            treasury = currentState.country.treasury - 500
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 500) country
+            else country.copy(
+                resources = country.resources.copy(
+                    food = (country.resources.food + 50).coerceAtMost(country.resources.maxFood)
+                ),
+                treasury = country.treasury - 500
             )
         }
     }
 
     fun buyEnergy() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 600) return
-
-        val newCountry = currentState.country.copy(
-            resources = currentState.country.resources.copy(
-                energy = (currentState.country.resources.energy + 50).coerceAtMost(currentState.country.resources.maxEnergy)
-            ),
-            treasury = currentState.country.treasury - 600
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 600) country
+            else country.copy(
+                resources = country.resources.copy(
+                    energy = (country.resources.energy + 50).coerceAtMost(country.resources.maxEnergy)
+                ),
+                treasury = country.treasury - 600
             )
         }
     }
 
     fun buyMaterials() {
-        val currentState = _uiState.value.gameState ?: return
-        if (currentState.country.treasury < 800) return
-
-        val newCountry = currentState.country.copy(
-            resources = currentState.country.resources.copy(
-                materials = (currentState.country.resources.materials + 30).coerceAtMost(currentState.country.resources.maxMaterials)
-            ),
-            treasury = currentState.country.treasury - 800
-        )
-
-        viewModelScope.launch {
-            repository.saveGame(newCountry)
-            _uiState.value = _uiState.value.copy(
-                gameState = currentState.copy(country = newCountry)
+        updateCountry { country ->
+            if (country.treasury < 800) country
+            else country.copy(
+                resources = country.resources.copy(
+                    materials = (country.resources.materials + 30).coerceAtMost(country.resources.maxMaterials)
+                ),
+                treasury = country.treasury - 800
             )
         }
     }
@@ -340,6 +273,101 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 currentEvent = null,
                 newsHeadline = null
             )
+        }
+    }
+
+    fun improveRelations(nationId: String) {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 500) return
+        
+        val newRelations = currentState.country.diplomaticRelations.map { rel ->
+            if (rel.nationId == nationId) {
+                rel.copy(relationScore = (rel.relationScore + 10).coerceAtMost(100))
+            } else rel
+        }
+        
+        val newCountry = currentState.country.copy(
+            diplomaticRelations = newRelations,
+            treasury = currentState.country.treasury - 500
+        )
+        val newState = currentState.copy(country = newCountry)
+        
+        viewModelScope.launch {
+            repository.saveGame(newState)
+            _uiState.value = _uiState.value.copy(gameState = newState)
+        }
+    }
+
+    fun declareWar(nationId: String) {
+        val currentState = _uiState.value.gameState ?: return
+        
+        val newRelations = currentState.country.diplomaticRelations.map { rel ->
+            if (rel.nationId == nationId) {
+                rel.copy(
+                    status = com.countrysimulator.game.domain.RelationStatus.ENEMY,
+                    isAtWar = true,
+                    relationScore = 0,
+                    hasTradeAgreement = false,
+                    hasAlliance = false,
+                    hasNonAggressionPact = false
+                )
+            } else rel
+        }
+        
+        val newCountry = currentState.country.copy(
+            diplomaticRelations = newRelations,
+            stats = currentState.country.stats.copy(stability = (currentState.country.stats.stability - 10).coerceAtLeast(0))
+        )
+        val newState = currentState.copy(country = newCountry)
+        
+        viewModelScope.launch {
+            repository.saveGame(newState)
+            _uiState.value = _uiState.value.copy(gameState = newState)
+        }
+    }
+
+    fun offerTrade(nationId: String) {
+        val currentState = _uiState.value.gameState ?: return
+        // Check if relations are high enough (>40)
+        val relation = currentState.country.diplomaticRelations.find { it.nationId == nationId } ?: return
+        if (relation.relationScore < 40) return
+        
+        val newRelations = currentState.country.diplomaticRelations.map { rel ->
+            if (rel.nationId == nationId) {
+                rel.copy(hasTradeAgreement = true)
+            } else rel
+        }
+        
+        val newCountry = currentState.country.copy(diplomaticRelations = newRelations)
+        val newState = currentState.copy(country = newCountry)
+        
+        viewModelScope.launch {
+            repository.saveGame(newState)
+            _uiState.value = _uiState.value.copy(gameState = newState)
+        }
+    }
+
+    fun formAlliance(nationId: String) {
+        val currentState = _uiState.value.gameState ?: return
+        // Check if relations are high enough (>80)
+        val relation = currentState.country.diplomaticRelations.find { it.nationId == nationId } ?: return
+        if (relation.relationScore < 80) return
+        
+        val newRelations = currentState.country.diplomaticRelations.map { rel ->
+            if (rel.nationId == nationId) {
+                rel.copy(
+                    hasAlliance = true,
+                    status = com.countrysimulator.game.domain.RelationStatus.ALLY
+                )
+            } else rel
+        }
+        
+        val newCountry = currentState.country.copy(diplomaticRelations = newRelations)
+        val newState = currentState.copy(country = newCountry)
+        
+        viewModelScope.launch {
+            repository.saveGame(newState)
+            _uiState.value = _uiState.value.copy(gameState = newState)
         }
     }
 

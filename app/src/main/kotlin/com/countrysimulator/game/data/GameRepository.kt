@@ -7,16 +7,21 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.countrysimulator.game.domain.AiNation
+import com.countrysimulator.game.domain.AiPersonality
 import com.countrysimulator.game.domain.Country
 import com.countrysimulator.game.domain.CountryStats
 import com.countrysimulator.game.domain.DiplomaticRelation
 import com.countrysimulator.game.domain.GameLogic
+import com.countrysimulator.game.domain.GameState
+import com.countrysimulator.game.domain.GlobalMarket
 import com.countrysimulator.game.domain.GovernmentType
+import com.countrysimulator.game.domain.RelationStatus
 import com.countrysimulator.game.domain.Resources
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v3")
 
 class GameRepository(private val context: Context) {
 
@@ -39,10 +44,16 @@ class GameRepository(private val context: Context) {
         val YEAR = intPreferencesKey("year")
         val TREASURY = intPreferencesKey("treasury")
         val TURN_COUNT = intPreferencesKey("turn_count")
+        
+        // V3 Keys
+        val AI_NATIONS = stringPreferencesKey("ai_nations")
+        val GLOBAL_MARKET = stringPreferencesKey("global_market")
+        val DIPLOMATIC_RELATIONS = stringPreferencesKey("diplomatic_relations")
     }
 
-    suspend fun saveGame(country: Country) {
+    suspend fun saveGame(gameState: GameState) {
         context.dataStore.edit { preferences ->
+            val country = gameState.country
             preferences[PreferencesKeys.COUNTRY_NAME] = country.name
             preferences[PreferencesKeys.GOVERNMENT_TYPE] = country.governmentType.name
             preferences[PreferencesKeys.POPULATION] = country.stats.population
@@ -61,10 +72,14 @@ class GameRepository(private val context: Context) {
             preferences[PreferencesKeys.YEAR] = country.year
             preferences[PreferencesKeys.TREASURY] = country.treasury
             preferences[PreferencesKeys.TURN_COUNT] = country.turnCount
+
+            preferences[PreferencesKeys.AI_NATIONS] = serializeAiNations(gameState.aiNations)
+            preferences[PreferencesKeys.GLOBAL_MARKET] = serializeGlobalMarket(gameState.globalMarket)
+            preferences[PreferencesKeys.DIPLOMATIC_RELATIONS] = serializeRelations(country.diplomaticRelations)
         }
     }
 
-    fun loadGame(): Flow<Country?> {
+    fun loadGame(): Flow<GameState?> {
         return context.dataStore.data.map { preferences ->
             val name = preferences[PreferencesKeys.COUNTRY_NAME] ?: return@map null
             val govType = preferences[PreferencesKeys.GOVERNMENT_TYPE]?.let {
@@ -75,7 +90,17 @@ class GameRepository(private val context: Context) {
                 }
             } ?: return@map null
 
-            Country(
+            val aiNationsString = preferences[PreferencesKeys.AI_NATIONS]
+            val globalMarketString = preferences[PreferencesKeys.GLOBAL_MARKET]
+            val relationsString = preferences[PreferencesKeys.DIPLOMATIC_RELATIONS]
+
+            val aiNations = if (aiNationsString != null) deserializeAiNations(aiNationsString) else GameLogic.generateAiNations()
+            val globalMarket = if (globalMarketString != null) deserializeGlobalMarket(globalMarketString) else GlobalMarket()
+            
+            // If relations fail to load, regenerate them (though this loses progress)
+            val relations = if (relationsString != null) deserializeRelations(relationsString) else GameLogic.generateInitialRelations(aiNations)
+
+            val country = Country(
                 name = name,
                 governmentType = govType,
                 stats = CountryStats(
@@ -95,15 +120,98 @@ class GameRepository(private val context: Context) {
                     energy = preferences[PreferencesKeys.ENERGY] ?: 100,
                     materials = preferences[PreferencesKeys.MATERIALS] ?: 50
                 ),
-                diplomaticRelations = GameLogic.generateInitialCountry(name, govType).diplomaticRelations,
+                diplomaticRelations = relations,
                 year = preferences[PreferencesKeys.YEAR] ?: 2024,
                 treasury = preferences[PreferencesKeys.TREASURY] ?: 10000,
                 turnCount = preferences[PreferencesKeys.TURN_COUNT] ?: 0
+            )
+
+            GameState(
+                country = country,
+                aiNations = aiNations,
+                globalMarket = globalMarket
             )
         }
     }
 
     suspend fun clearGame() {
         context.dataStore.edit { it.clear() }
+    }
+
+    private fun serializeAiNations(nations: List<AiNation>): String {
+        return nations.joinToString(";") { ai ->
+            "${ai.id}|${ai.name}|${ai.governmentType.name}|${ai.personality.name}|${ai.stats.military}|${ai.stats.economy}|${ai.stats.technology}|${ai.stats.population}|${ai.treasury}|${ai.isAlive}|${ai.stats.stability}"
+        }
+    }
+
+    private fun deserializeAiNations(data: String): List<AiNation> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                AiNation(
+                    id = parts[0],
+                    name = parts[1],
+                    governmentType = GovernmentType.valueOf(parts[2]),
+                    personality = AiPersonality.valueOf(parts[3]),
+                    stats = CountryStats(
+                        military = parts[4].toInt(),
+                        economy = parts[5].toInt(),
+                        technology = parts[6].toInt(),
+                        population = parts[7].toInt(),
+                        stability = parts.getOrElse(10) { "50" }.toInt() // Added later, handle migration
+                    ),
+                    treasury = parts[8].toInt(),
+                    isAlive = parts[9].toBoolean()
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    private fun serializeGlobalMarket(market: GlobalMarket): String {
+        return "${market.foodPrice},${market.energyPrice},${market.materialsPrice},${market.globalInstability}"
+    }
+
+    private fun deserializeGlobalMarket(data: String): GlobalMarket {
+        try {
+            val parts = data.split(",")
+            return GlobalMarket(
+                foodPrice = parts[0].toInt(),
+                energyPrice = parts[1].toInt(),
+                materialsPrice = parts[2].toInt(),
+                globalInstability = parts[3].toInt()
+            )
+        } catch (e: Exception) {
+            return GlobalMarket()
+        }
+    }
+
+    private fun serializeRelations(relations: List<DiplomaticRelation>): String {
+        return relations.joinToString(";") { rel ->
+            "${rel.nationName}|${rel.nationId}|${rel.relationScore}|${rel.status.name}|${rel.isAtWar}|${rel.hasTradeAgreement}|${rel.hasNonAggressionPact}|${rel.hasAlliance}"
+        }
+    }
+
+    private fun deserializeRelations(data: String): List<DiplomaticRelation> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                DiplomaticRelation(
+                    nationName = parts[0],
+                    nationId = parts[1],
+                    relationScore = parts[2].toInt(),
+                    status = RelationStatus.valueOf(parts[3]),
+                    isAtWar = parts[4].toBoolean(),
+                    hasTradeAgreement = parts[5].toBoolean(),
+                    hasNonAggressionPact = parts[6].toBoolean(),
+                    hasAlliance = parts[7].toBoolean()
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 }

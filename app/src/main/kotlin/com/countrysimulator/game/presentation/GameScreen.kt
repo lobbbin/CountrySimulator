@@ -2,698 +2,446 @@ package com.countrysimulator.game.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.countrysimulator.game.domain.AiNation
+import com.countrysimulator.game.domain.DiplomaticRelation
 import com.countrysimulator.game.domain.GameOverReason
+import com.countrysimulator.game.domain.GameState
 import com.countrysimulator.game.domain.GovernmentType
+import com.countrysimulator.game.domain.RelationStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
 
-    MaterialTheme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            when {
-                uiState.isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                }
-                uiState.showNewGameDialog -> {
-                    NewGameDialog(
-                        onStartGame = { name, govType ->
-                            viewModel.startNewGame(name, govType)
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            primary = Color(0xFF3F51B5),
+            secondary = Color(0xFFFFC107),
+            tertiary = Color(0xFF009688),
+            background = Color(0xFF121212),
+            surface = Color(0xFF1E1E1E),
+            onPrimary = Color.White,
+            onSecondary = Color.Black,
+            onBackground = Color.White,
+            onSurface = Color.White
+        )
+    ) {
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (uiState.showNewGameDialog) {
+            NewGameDialog(onStartGame = { name, govType -> viewModel.startNewGame(name, govType) })
+        } else if (uiState.gameState != null) {
+            val gameState = uiState.gameState!!
+            
+            if (gameState.isGameOver && gameState.gameOverReason != null) {
+                GameOverScreen(
+                    reason = gameState.gameOverReason!!,
+                    message = viewModel.getGameOverMessage(gameState.gameOverReason!!),
+                    onRestart = { viewModel.restartGame() }
+                )
+            } else {
+                Scaffold(
+                    bottomBar = {
+                        NavigationBar {
+                            NavigationBarItem(
+                                icon = { Icon(Icons.Default.Home, "Dashboard") },
+                                label = { Text("Nation") },
+                                selected = currentScreen == Screen.DASHBOARD,
+                                onClick = { currentScreen = Screen.DASHBOARD }
+                            )
+                            NavigationBarItem(
+                                icon = { Icon(Icons.Default.List, "World") },
+                                label = { Text("World") },
+                                selected = currentScreen == Screen.WORLD,
+                                onClick = { currentScreen = Screen.WORLD }
+                            )
+                            NavigationBarItem(
+                                icon = { Icon(Icons.Default.Info, "Market") },
+                                label = { Text("Market") },
+                                selected = currentScreen == Screen.MARKET,
+                                onClick = { currentScreen = Screen.MARKET }
+                            )
                         }
-                    )
-                }
-                uiState.showEventDialog && uiState.currentEvent != null -> {
-                    EventDialog(
-                        event = uiState.currentEvent!!,
-                        onOptionSelected = { index ->
-                            viewModel.handleEventOption(index)
+                    }
+                ) { padding ->
+                    Box(modifier = Modifier.padding(padding)) {
+                        when (currentScreen) {
+                            Screen.DASHBOARD -> DashboardScreen(
+                                gameState = gameState,
+                                incomeThisTurn = uiState.incomeThisTurn,
+                                newsHeadline = uiState.newsHeadline,
+                                onNextTurn = { viewModel.nextTurn() },
+                                viewModel = viewModel
+                            )
+                            Screen.WORLD -> WorldScreen(
+                                gameState = gameState,
+                                onDiplomacyAction = { action, id ->
+                                    when (action) {
+                                        DiplomacyAction.IMPROVE -> viewModel.improveRelations(id)
+                                        DiplomacyAction.TRADE -> viewModel.offerTrade(id)
+                                        DiplomacyAction.ALLIANCE -> viewModel.formAlliance(id)
+                                        DiplomacyAction.WAR -> viewModel.declareWar(id)
+                                    }
+                                }
+                            )
+                            Screen.MARKET -> MarketScreen(gameState = gameState)
                         }
-                    )
-                }
-                uiState.gameState != null -> {
-                    val gameState = uiState.gameState!!
-                    if (gameState.isGameOver && gameState.gameOverReason != null) {
-                        GameOverScreen(
-                            reason = gameState.gameOverReason!!,
-                            message = viewModel.getGameOverMessage(gameState.gameOverReason!!),
-                            onRestart = { viewModel.restartGame() }
-                        )
-                    } else {
-                        GameScreen(
-                            gameState = gameState,
-                            incomeThisTurn = uiState.incomeThisTurn,
-                            newsHeadline = uiState.newsHeadline,
-                            onNextTurn = { viewModel.nextTurn() },
-                            onInvestEconomy = { viewModel.investInEconomy() },
-                            onRecruitMilitary = { viewModel.recruitMilitary() },
-                            onImproveInfrastructure = { viewModel.improveInfrastructure() },
-                            onInvestTechnology = { viewModel.investInTechnology() },
-                            onImproveHappiness = { viewModel.improveHappiness() },
-                            onInvestEducation = { viewModel.investInEducation() },
-                            onInvestHealthcare = { viewModel.investInHealthcare() },
-                            onImproveEnvironment = { viewModel.improveEnvironment() },
-                            onFightCrime = { viewModel.fightCrime() },
-                            onBuyFood = { viewModel.buyFood() },
-                            onBuyEnergy = { viewModel.buyEnergy() },
-                            onBuyMaterials = { viewModel.buyMaterials() }
-                        )
+
+                        if (uiState.showEventDialog && uiState.currentEvent != null) {
+                            EventDialog(
+                                event = uiState.currentEvent!!,
+                                onOptionSelected = { index -> viewModel.handleEventOption(index) }
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+enum class Screen { DASHBOARD, WORLD, MARKET }
+enum class DiplomacyAction { IMPROVE, TRADE, ALLIANCE, WAR }
+
+@Composable
+fun DashboardScreen(
+    gameState: GameState,
+    incomeThisTurn: Int,
+    newsHeadline: String?,
+    onNextTurn: () -> Unit,
+    viewModel: GameViewModel
+) {
+    val country = gameState.country
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        // Header Info
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = country.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text("Year: ${country.year} | Turn: ${country.turnCount}", fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Treasury: $${formatNumber(country.treasury)}", fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
+                    Text("Income: +$${formatNumber(incomeThisTurn)}", color = Color(0xFF8BC34A))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (newsHeadline != null) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Text(
+                    text = newsHeadline,
+                    modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Stats Grid
+        Text("Nation Statistics", fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        StatBar("Population", country.stats.population, 100000000, 0xFF4CAF50.toInt())
+        StatBar("Economy", country.stats.economy, 100, 0xFFFFD700.toInt())
+        StatBar("Military", country.stats.military, 100, 0xFFF44336.toInt())
+        StatBar("Stability", country.stats.stability, 100, 0xFF9C27B0.toInt())
+        StatBar("Tech", country.stats.technology, 100, 0xFF00BCD4.toInt())
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Resources
+        Text("Resources", fontWeight = FontWeight.Bold)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            ResourceItem("Food", country.resources.food, country.resources.maxFood, 0xFF4CAF50.toInt())
+            ResourceItem("Energy", country.resources.energy, country.resources.maxEnergy, 0xFFFFD700.toInt())
+            ResourceItem("Matls", country.resources.materials, country.resources.maxMaterials, 0xFF9C27B0.toInt())
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Actions
+        Text("Actions", fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButtonSmall("Invest Econ ($1000)", { viewModel.investInEconomy() }, country.treasury >= 1000, Modifier.weight(1f))
+            ActionButtonSmall("Recruit Mil ($800)", { viewModel.recruitMilitary() }, country.treasury >= 800, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButtonSmall("Improve Infra ($1200)", { viewModel.improveInfrastructure() }, country.treasury >= 1200, Modifier.weight(1f))
+            ActionButtonSmall("Research Tech ($1500)", { viewModel.investInTechnology() }, country.treasury >= 1500, Modifier.weight(1f))
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Button(
+            onClick = onNextTurn,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        ) {
+            Text("NEXT TURN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun WorldScreen(gameState: GameState, onDiplomacyAction: (DiplomacyAction, String) -> Unit) {
+    val relations = gameState.country.diplomaticRelations
+    val aiNations = gameState.aiNations
+
+    LazyColumn(modifier = Modifier.padding(16.dp)) {
+        item {
+            Text("Global Powers", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        items(relations) { relation ->
+            val aiNation = aiNations.find { it.id == relation.nationId }
+            if (aiNation != null && aiNation.isAlive) {
+                AiNationCard(aiNation, relation, onDiplomacyAction)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun AiNationCard(aiNation: AiNation, relation: DiplomaticRelation, onAction: (DiplomacyAction, String) -> Unit) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    Card(
+        onClick = { showDialog = true },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(aiNation.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(aiNation.governmentType.displayName, fontSize = 12.sp, color = Color.Gray)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text("Personality: ${aiNation.personality.name}", fontSize = 12.sp)
+                Text(
+                    text = "Relation: ${relation.relationScore} (${relation.status})",
+                    color = if (relation.status == RelationStatus.ENEMY) Color.Red else if (relation.status == RelationStatus.ALLY) Color.Green else Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+            if (relation.isAtWar) {
+                Text("⚠ AT WAR ⚠", color = Color.Red, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            }
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Diplomacy: ${aiNation.name}") },
+            text = {
+                Column {
+                    Text("Government: ${aiNation.governmentType.displayName}")
+                    Text("Economy: ${aiNation.stats.economy} | Military: ${aiNation.stats.military}")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    if (!relation.isAtWar) {
+                        Button(onClick = { onAction(DiplomacyAction.IMPROVE, aiNation.id); showDialog = false }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Improve Relations ($500)")
+                        }
+                        Button(
+                            onClick = { onAction(DiplomacyAction.TRADE, aiNation.id); showDialog = false },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = relation.relationScore >= 40 && !relation.hasTradeAgreement
+                        ) {
+                            Text(if (relation.hasTradeAgreement) "Trade Active" else "Offer Trade Agreement (Req: 40)")
+                        }
+                        Button(
+                            onClick = { onAction(DiplomacyAction.ALLIANCE, aiNation.id); showDialog = false },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = relation.relationScore >= 80 && !relation.hasAlliance
+                        ) {
+                            Text(if (relation.hasAlliance) "Alliance Active" else "Form Alliance (Req: 80)")
+                        }
+                        Button(
+                            onClick = { onAction(DiplomacyAction.WAR, aiNation.id); showDialog = false },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("DECLARE WAR")
+                        }
+                    } else {
+                         Text("You are at war with this nation!", color = Color.Red, fontWeight = FontWeight.Bold)
+                         // Peace option could go here
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showDialog = false }) { Text("Close") } }
+        )
+    }
+}
+
+@Composable
+fun MarketScreen(gameState: GameState) {
+    Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+        Text("Global Market", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        MarketCard("Food", gameState.globalMarket.foodPrice, "Essential for population growth.")
+        Spacer(modifier = Modifier.height(8.dp))
+        MarketCard("Energy", gameState.globalMarket.energyPrice, "Powers industry and military.")
+        Spacer(modifier = Modifier.height(8.dp))
+        MarketCard("Materials", gameState.globalMarket.materialsPrice, "Required for construction.")
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Global Instability: ${gameState.globalMarket.globalInstability}%", color = if (gameState.globalMarket.globalInstability > 50) Color.Red else Color.Green)
+        Text("High instability increases price volatility.", fontSize = 12.sp, color = Color.Gray)
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("Event History", fontWeight = FontWeight.Bold)
+        LazyColumn {
+            items(gameState.eventHistory) { event ->
+                Text("• $event", fontSize = 12.sp, modifier = Modifier.padding(vertical = 2.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun MarketCard(name: String, price: Int, desc: String) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text(name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(desc, fontSize = 12.sp, color = Color.Gray)
+            }
+            Text("$${price}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFF8BC34A))
+        }
+    }
+}
+
+// ... (Reuse existing components: NewGameDialog, GameOverScreen, EventDialog, etc.)
+// I will include them here to ensure the file is complete.
 
 @Composable
 fun NewGameDialog(onStartGame: (String, GovernmentType) -> Unit) {
     var countryName by remember { mutableStateOf("") }
     var selectedGovType by remember { mutableStateOf(GovernmentType.DEMOCRACY) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Country Simulator",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Version 2.0",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.tertiary
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Build Your Nation",
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Country Simulator 3.0", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text("The World Stage Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
         Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedTextField(
-            value = countryName,
-            onValueChange = { countryName = it },
-            label = { Text("Country Name") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
-
+        OutlinedTextField(value = countryName, onValueChange = { countryName = it }, label = { Text("Country Name") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Government Type",
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Column(modifier = Modifier.fillMaxWidth()) {
-            GovernmentType.entries.chunked(2).forEach { rowItems ->
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    rowItems.forEach { govType ->
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedGovType == govType,
-                                onClick = { selectedGovType = govType }
-                            )
-                            Text(
-                                text = govType.displayName,
-                                fontSize = 12.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-                    if (rowItems.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
+        Text("Government Type")
+        GovernmentType.values().forEach { gov ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                RadioButton(selected = selectedGovType == gov, onClick = { selectedGovType = gov })
+                Text(gov.displayName, fontSize = 14.sp)
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = selectedGovType.displayName,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = selectedGovType.description,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    if (selectedGovType.economyBonus != 0) {
-                        StatChip("Econ", selectedGovType.economyBonus)
-                    }
-                    if (selectedGovType.militaryBonus != 0) {
-                        StatChip("Mil", selectedGovType.militaryBonus)
-                    }
-                    if (selectedGovType.happinessBonus != 0) {
-                        StatChip("Happy", selectedGovType.happinessBonus)
-                    }
-                    if (selectedGovType.stabilityBonus != 0) {
-                        StatChip("Stab", selectedGovType.stabilityBonus)
-                    }
-                    if (selectedGovType.techBonus != 0) {
-                        StatChip("Tech", selectedGovType.techBonus)
-                    }
-                }
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = {
-                if (countryName.isNotBlank()) {
-                    onStartGame(countryName, selectedGovType)
-                }
-            },
-            enabled = countryName.isNotBlank(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            Text("Start Game", fontSize = 16.sp)
+        Button(onClick = { if (countryName.isNotBlank()) onStartGame(countryName, selectedGovType) }, enabled = countryName.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+            Text("Start Game")
         }
     }
 }
 
 @Composable
-private fun StatChip(label: String, value: Int) {
-    val color = if (value > 0) androidx.compose.ui.graphics.Color(0xFF4CAF50) else androidx.compose.ui.graphics.Color(0xFFF44336)
-    Text(
-        text = "$label: ${if (value > 0) "+" else ""}$value",
-        fontSize = 10.sp,
-        color = color
-    )
-}
-
-@Composable
-fun GameScreen(
-    gameState: com.countrysimulator.game.domain.GameState,
-    incomeThisTurn: Int,
-    newsHeadline: String?,
-    onNextTurn: () -> Unit,
-    onInvestEconomy: () -> Unit,
-    onRecruitMilitary: () -> Unit,
-    onImproveInfrastructure: () -> Unit,
-    onInvestTechnology: () -> Unit,
-    onImproveHappiness: () -> Unit,
-    onInvestEducation: () -> Unit,
-    onInvestHealthcare: () -> Unit,
-    onImproveEnvironment: () -> Unit,
-    onFightCrime: () -> Unit,
-    onBuyFood: () -> Unit,
-    onBuyEnergy: () -> Unit,
-    onBuyMaterials: () -> Unit
-) {
-    val scrollState = rememberScrollState()
-    val country = gameState.country
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(16.dp)
-    ) {
-        if (newsHeadline != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-            ) {
-                Text(
-                    text = newsHeadline,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(12.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        Text(
-            text = country.name,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = country.governmentType.displayName,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    StatItem("Year", "${country.year}")
-                    StatItem("Turn", "${country.turnCount}")
-                    StatItem("Treasury", "$${formatNumber(country.treasury)}")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "+$${formatNumber(incomeThisTurn)}/turn",
-                    fontSize = 12.sp,
-                    color = if (incomeThisTurn > 0) androidx.compose.ui.graphics.Color(0xFF4CAF50) else androidx.compose.ui.graphics.Color(0xFFF44336),
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = "Resources",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    ResourceItem("Food", country.resources.food, country.resources.maxFood, 0xFF4CAF50.toInt())
-                    ResourceItem("Energy", country.resources.energy, country.resources.maxEnergy, 0xFFFFD700.toInt())
-                    ResourceItem("Materials", country.resources.materials, country.resources.maxMaterials, 0xFF9C27B0.toInt())
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Nation Statistics",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        StatBar("Population", country.stats.population, 100000000, 0xFF4CAF50.toInt())
-        StatBar("Economy", country.stats.economy, 100, 0xFFFFD700.toInt())
-        StatBar("Military", country.stats.military, 100, 0xFFF44336.toInt())
-        StatBar("Happiness", country.stats.happiness, 100, 0xFF2196F3.toInt())
-        StatBar("Stability", country.stats.stability, 100, 0xFF9C27B0.toInt())
-        StatBar("Technology", country.stats.technology, 100, 0xFF00BCD4.toInt())
-        StatBar("Education", country.stats.education, 100, 0xFFE91E63.toInt())
-        StatBar("Healthcare", country.stats.healthcare, 100, 0xFF8BC34A.toInt())
-        StatBar("Environment", country.stats.environment, 100, 0xFF009688.toInt())
-        StatBar("Crime", 100 - country.stats.crime, 100, 0xFF607D8B.toInt())
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Economy Actions",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            ActionButtonSmall("Economy ($1000)", onInvestEconomy, country.treasury >= 1000, Modifier.weight(1f))
-            ActionButtonSmall("Military ($800)", onRecruitMilitary, country.treasury >= 800, Modifier.weight(1f))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            ActionButtonSmall("Tech ($1500)", onInvestTechnology, country.treasury >= 1500, Modifier.weight(1f))
-            ActionButtonSmall("Infra ($1200)", onImproveInfrastructure, country.treasury >= 1200, Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Social Actions",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            ActionButtonSmall("Happy ($800)", onImproveHappiness, country.treasury >= 800, Modifier.weight(1f))
-            ActionButtonSmall("Education ($1200)", onInvestEducation, country.treasury >= 1200, Modifier.weight(1f))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            ActionButtonSmall("Health ($1000)", onInvestHealthcare, country.treasury >= 1000, Modifier.weight(1f))
-            ActionButtonSmall("Crime ($800)", onFightCrime, country.treasury >= 800, Modifier.weight(1f))
-        }
-        ActionButtonSmall("Environment ($1500)", onImproveEnvironment, country.treasury >= 1500, Modifier.fillMaxWidth())
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Buy Resources",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            ActionButtonSmall("Food ($500)", onBuyFood, country.treasury >= 500, Modifier.weight(1f))
-            ActionButtonSmall("Energy ($600)", onBuyEnergy, country.treasury >= 600, Modifier.weight(1f))
-            ActionButtonSmall("Matls ($800)", onBuyMaterials, country.treasury >= 800, Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Button(
-            onClick = onNextTurn,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-        ) {
-            Text("Next Turn", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
-
-        if (gameState.lastEvent != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Last Event",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            text = gameState.lastEvent.category.name,
-                            fontSize = 11.sp,
-                            color = when (gameState.lastEvent.severity) {
-                                com.countrysimulator.game.domain.EventSeverity.CATASTROPHIC -> androidx.compose.ui.graphics.Color(0xFFF44336)
-                                com.countrysimulator.game.domain.EventSeverity.MAJOR -> androidx.compose.ui.graphics.Color(0xFFFF9800)
-                                else -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                            }
-                        )
-                    }
-                    Text(
-                        text = gameState.lastEvent.title,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        text = gameState.lastEvent.description,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-    }
-}
-
-@Composable
-fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
-        Text(
-            text = value,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-fun ResourceItem(label: String, value: Int, max: Int, color: Int) {
-    val progress = value.toFloat() / max.toFloat()
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                .width(60.dp)
-                .height(8.dp),
-            color = androidx.compose.ui.graphics.Color(color),
-            trackColor = MaterialTheme.colorScheme.surface
-        )
-        Text(
-            text = "$value/$max",
-            fontSize = 9.sp
-        )
-    }
-}
-
-@Composable
-fun StatBar(label: String, value: Int, max: Int, color: Int) {
-    val progress = value.toFloat() / max.toFloat()
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            modifier = Modifier.width(70.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-        )
-        LinearProgressIndicator(
-            progress = { progress },
-            modifier = Modifier
-                .weight(1f)
-                .height(12.dp),
-            color = androidx.compose.ui.graphics.Color(color),
-            trackColor = MaterialTheme.colorScheme.surface
-        )
-        Text(
-            text = "$value",
-            fontSize = 10.sp,
-            modifier = Modifier.width(35.dp),
-            textAlign = TextAlign.End
-        )
-    }
-}
-
-@Composable
-fun ActionButton(text: String, onClick: () -> Unit, enabled: Boolean) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-        Text(text, fontSize = 12.sp)
-    }
-}
-
-@Composable
-fun ActionButtonSmall(text: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.padding(vertical = 2.dp)
-    ) {
-        Text(text, fontSize = 10.sp)
-    }
-}
-
-@Composable
-fun EventDialog(
-    event: com.countrysimulator.game.domain.GameEvent,
-    onOptionSelected: (Int) -> Unit
-) {
-    val severityColor = when (event.severity) {
-        com.countrysimulator.game.domain.EventSeverity.CATASTROPHIC -> androidx.compose.ui.graphics.Color(0xFFF44336)
-        com.countrysimulator.game.domain.EventSeverity.MAJOR -> androidx.compose.ui.graphics.Color(0xFFFF9800)
-        com.countrysimulator.game.domain.EventSeverity.MODERATE -> androidx.compose.ui.graphics.Color(0xFF2196F3)
-        com.countrysimulator.game.domain.EventSeverity.MINOR -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-    }
-
+fun EventDialog(event: com.countrysimulator.game.domain.GameEvent, onOptionSelected: (Int) -> Unit) {
     AlertDialog(
         onDismissRequest = { },
-        title = {
-            Column {
-                Text(
-                    text = event.title,
-                    fontWeight = FontWeight.Bold,
-                    color = severityColor
-                )
-                Text(
-                    text = "${event.category.name} - ${event.severity.name}",
-                    fontSize = 10.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-            }
-        },
+        title = { Text(event.title, fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text(
-                    text = event.description,
-                    fontSize = 14.sp
-                )
+                Text(event.description)
                 Spacer(modifier = Modifier.height(16.dp))
                 event.options.forEachIndexed { index, option ->
-                    OutlinedButton(
-                        onClick = { onOptionSelected(index) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(option.label, fontSize = 13.sp)
-                            Text(
-                                option.description,
-                                fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
+                    Button(onClick = { onOptionSelected(index) }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(option.label)
+                            Text(option.description, fontSize = 10.sp)
                         }
                     }
                 }
             }
         },
-        confirmButton = { }
+        confirmButton = {}
     )
 }
 
 @Composable
-fun GameOverScreen(
-    reason: GameOverReason,
-    message: String,
-    onRestart: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Game Over",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = androidx.compose.ui.graphics.Color(0xFFF44336)
-        )
+fun GameOverScreen(reason: GameOverReason, message: String, onRestart: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Text("GAME OVER", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = Color.Red)
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = reason.name.replace("_", " "),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = message,
-            fontSize = 16.sp,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-        )
+        Text(reason.name, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(message, textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(32.dp))
-        Button(
-            onClick = onRestart,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-        ) {
-            Text("Play Again", fontSize = 18.sp)
-        }
+        Button(onClick = onRestart) { Text("Play Again") }
+    }
+}
+
+// Helper Components
+@Composable fun StatBar(label: String, value: Int, max: Int, color: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        Text(label, modifier = Modifier.width(80.dp), fontSize = 12.sp)
+        LinearProgressIndicator(progress = { value / max.toFloat() }, modifier = Modifier.weight(1f).height(8.dp), color = Color(color), trackColor = Color.DarkGray)
+        Text("$value", modifier = Modifier.width(40.dp), textAlign = TextAlign.End, fontSize = 12.sp)
+    }
+}
+
+@Composable fun ResourceItem(label: String, value: Int, max: Int, color: Int) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, fontSize = 10.sp, color = Color.Gray)
+        LinearProgressIndicator(progress = { value / max.toFloat() }, modifier = Modifier.width(60.dp), color = Color(color))
+        Text("$value", fontSize = 10.sp)
+    }
+}
+
+@Composable fun ActionButtonSmall(text: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
+    OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier, contentPadding = PaddingValues(4.dp)) {
+        Text(text, fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 1)
     }
 }
 

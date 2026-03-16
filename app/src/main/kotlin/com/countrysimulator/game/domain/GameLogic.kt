@@ -2,19 +2,43 @@ package com.countrysimulator.game.domain
 
 object GameLogic {
 
-    private val nations = listOf(
-        "United Republic", "Eastern Empire", "Western Alliance", "Northern Federation",
-        "Southern Kingdom", "Central Union", "Pacific Coalition", "Atlantic Dominion"
-    )
+    private val nationNamesPrefixes = listOf("United", "Republic of", "Kingdom of", "Empire of", "Federation of", "People's Union of", "Grand Duchy of")
+    private val nationNamesBases = listOf("Arstotzka", "Borginia", "Calisota", "Dinotopia", "Equestria", "Florin", "Genosha", "Hyrule", "Ishval", "Jalabad", "Krakozhia", "Latveria", "Moldavia", "Narnia", "Osterlich", "Panem", "Qumar", "Ruritania", "Sokovia", "Wakanda")
 
-    private fun generateDiplomaticRelations(): List<DiplomaticRelation> {
-        return nations.take(4).map { nation ->
+    fun generateAiNations(count: Int = 8): List<AiNation> {
+        return (1..count).map {
+            val name = "${nationNamesPrefixes.random()} ${nationNamesBases.random()}"
+            val personality = AiPersonality.values().random()
+            val govType = GovernmentType.values().random()
+            
+            // Base stats modified by personality
+            val baseMilitary = if (personality == AiPersonality.AGGRESSIVE) 60 else 30
+            val baseEconomy = if (personality == AiPersonality.TRADER) 60 else 40
+            val baseTech = if (personality == AiPersonality.SCIENTIFIC) 50 else 20
+
+            AiNation(
+                id = "ai_$it",
+                name = name,
+                governmentType = govType,
+                personality = personality,
+                stats = CountryStats(
+                    military = baseMilitary + (-10..10).random(),
+                    economy = baseEconomy + (-10..10).random(),
+                    technology = baseTech + (-5..5).random(),
+                    population = (500000..5000000).random()
+                ),
+                treasury = (2000..8000).random()
+            )
+        }
+    }
+
+    fun generateInitialRelations(aiNations: List<AiNation>): List<DiplomaticRelation> {
+        return aiNations.map { ai ->
             DiplomaticRelation(
-                nationName = nation,
-                relation = (20..80).random(),
-                tradeAgreement = (1..10).random() <= 2,
-                militaryAlliance = (1..20).random() == 1,
-                war = false
+                nationName = ai.name,
+                nationId = ai.id,
+                relationScore = 50 + (-20..20).random(),
+                status = RelationStatus.NEUTRAL
             )
         }
     }
@@ -562,7 +586,57 @@ object GameLogic {
         }
     }
 
-    fun processTurn(country: Country): GameState {
+    fun processAiTurn(ai: AiNation, globalMarket: GlobalMarket): AiNation {
+        // AI logic: Invest based on personality
+        var newTreasury = ai.treasury + (ai.stats.economy * 10) // Simplified income
+        var newStats = ai.stats.copy()
+
+        // Random events for AI
+        if ((1..10).random() > 8) {
+            newStats = newStats.copy(
+                economy = (newStats.economy + (-5..5).random()).coerceIn(0, 100),
+                stability = (newStats.stability + (-5..5).random()).coerceIn(0, 100)
+            )
+        }
+
+        // Spending logic
+        if (newTreasury > 1000) {
+            when (ai.personality) {
+                AiPersonality.AGGRESSIVE -> {
+                    if (newStats.military < 80) {
+                         newStats = newStats.copy(military = newStats.military + 5)
+                         newTreasury -= 800
+                    }
+                }
+                AiPersonality.TRADER -> {
+                    if (newStats.economy < 80) {
+                        newStats = newStats.copy(economy = newStats.economy + 5)
+                        newTreasury -= 1000
+                    }
+                }
+                AiPersonality.SCIENTIFIC -> {
+                     if (newStats.technology < 80) {
+                        newStats = newStats.copy(technology = newStats.technology + 5)
+                        newTreasury -= 1500
+                    }
+                }
+                else -> {
+                    // Balanced
+                    if ((1..2).random() == 1) {
+                         newStats = newStats.copy(economy = newStats.economy + 2)
+                         newTreasury -= 500
+                    }
+                }
+            }
+        }
+
+        return ai.copy(stats = newStats, treasury = newTreasury)
+    }
+
+    fun processTurn(currentState: GameState): GameState {
+        val country = currentState.country
+        
+        // 1. Process Player Turn
         val income = calculateTurnIncome(country)
         var newTreasury = country.treasury + income
         var newStats = country.stats.copy()
@@ -570,38 +644,32 @@ object GameLogic {
 
         newStats = getGovernmentBonus(country.governmentType)(newStats)
 
+        // 2. Process AI Turns
+        val newAiNations = currentState.aiNations.map { processAiTurn(it, currentState.globalMarket) }
+
+        // 3. Global Market Fluctuation
+        val globalStability = newAiNations.sumOf { it.stats.stability } / newAiNations.size
+        val newGlobalMarket = currentState.globalMarket.copy(
+            globalInstability = 100 - globalStability,
+            foodPrice = (currentState.globalMarket.foodPrice + (-1..1).random()).coerceIn(5, 50),
+            energyPrice = (currentState.globalMarket.energyPrice + (-1..1).random()).coerceIn(5, 50)
+        )
+
+        // 4. Random Events
         val eventRoll = (1..100).random()
         val eventThreshold = 100 - newStats.stability + 20
         val event = if (eventRoll <= eventThreshold && events.isNotEmpty()) {
-            val availableEvents = events.filter { event ->
-                event.prerequisites == null || event.prerequisites.invoke(country)
-            }
-            if (availableEvents.isNotEmpty()) availableEvents.random() else null
+            events.random()
         } else null
 
         event?.let {
             newStats = it.effect(newStats)
         }
 
-        val populationGrowth = when {
-            newStats.healthcare > 70 -> 0.015
-            newStats.healthcare > 40 -> 0.01
-            newStats.healthcare > 20 -> 0.008
-            else -> 0.005
-        }
-        val hungerFactor = if (newResources.food < 30) -0.02 else 0.0
-
+        // 5. Population & Stat Decay/Growth
+        val populationGrowth = 0.01 // Simplified
         newStats = newStats.copy(
-            population = (newStats.population * (1 + populationGrowth + hungerFactor)).toInt().coerceAtMost(100000000),
-            economy = (newStats.economy + (1..3).random()).coerceAtMost(100),
-            military = (newStats.military + (-2..3).random()).coerceAtMost(100).coerceAtLeast(0),
-            happiness = (newStats.happiness + (-3..3).random()).coerceAtMost(100).coerceAtLeast(0),
-            stability = (newStats.stability + (-2..2).random()).coerceAtMost(100).coerceAtLeast(0),
-            technology = (newStats.technology + (0..2).random()).coerceAtMost(100),
-            education = (newStats.education + (0..1).random()).coerceAtMost(100),
-            healthcare = (newStats.healthcare + (-1..1).random()).coerceAtMost(100).coerceAtLeast(0),
-            environment = (newStats.environment + (-2..1).random()).coerceAtMost(100).coerceAtLeast(0),
-            crime = (newStats.crime + (-2..2).random()).coerceAtMost(100).coerceAtLeast(0)
+            population = (newStats.population * (1 + populationGrowth)).toInt().coerceAtMost(100000000)
         )
 
         val newCountry = country.copy(
@@ -609,7 +677,8 @@ object GameLogic {
             resources = newResources,
             treasury = newTreasury,
             year = country.year + 1,
-            turnCount = country.turnCount + 1
+            turnCount = country.turnCount + 1,
+            diplomaticRelations = country.diplomaticRelations // In future, update relations based on events
         )
 
         val gameOverReason = checkGameOver(newCountry)
@@ -620,38 +689,31 @@ object GameLogic {
         }
         newEventHistory.addAll(country.turnCount.coerceAtMost(9).let { country.eventHistory.take(it) })
 
-        val headline = when {
-            event != null && event.severity == EventSeverity.CATASTROPHIC -> "BREAKING: ${event.title} rocks the nation!"
-            event != null && event.severity == EventSeverity.MAJOR -> "MAJOR: ${event.title} impacts citizens"
-            event != null -> "NEWS: ${event.title} develops"
-            income > 5000 -> "ECONOMY: Record growth this quarter"
-            newStats.happiness > 80 -> "MORALE: Citizens celebrating banner year"
-            newStats.technology > 80 -> "TECH: Nation leads the world in innovation"
-            newResources.food < 30 -> "ALERT: Food shortage warning issued"
-            else -> null
-        }
-
-        return GameState(
+        return currentState.copy(
             country = newCountry.copy(eventHistory = newEventHistory),
+            aiNations = newAiNations,
+            globalMarket = newGlobalMarket,
             isGameOver = gameOverReason != null,
             gameOverReason = gameOverReason,
             lastEvent = event,
             eventHistory = newEventHistory,
-            newsHeadline = headline
+            newsHeadline = event?.title // Simplified headline
         )
     }
 
-    fun getRandomEvent(): GameEvent = events.random()
-
-    fun generateInitialCountry(name: String, governmentType: GovernmentType): Country {
-        return Country(
+    fun generateInitialCountry(name: String, governmentType: GovernmentType): Pair<Country, List<AiNation>> {
+        val aiNations = generateAiNations()
+        val relations = generateInitialRelations(aiNations)
+        
+        val country = Country(
             name = name,
             governmentType = governmentType,
             stats = CountryStats(),
             resources = Resources(),
-            diplomaticRelations = generateDiplomaticRelations(),
+            diplomaticRelations = relations,
             year = 2024,
             treasury = 10000
         )
+        return Pair(country, aiNations)
     }
 }

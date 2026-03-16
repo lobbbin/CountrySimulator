@@ -83,12 +83,46 @@ data class Resources(
     val maxMaterials: Int = 150
 )
 
+enum class RelationStatus {
+    ENEMY, RIVAL, NEUTRAL, FRIENDLY, ALLY
+}
+
 data class DiplomaticRelation(
     val nationName: String,
-    val relation: Int = 50,
-    val tradeAgreement: Boolean = false,
-    val militaryAlliance: Boolean = false,
-    val war: Boolean = false
+    val nationId: String,
+    val relationScore: Int = 50, // 0 to 100
+    val status: RelationStatus = RelationStatus.NEUTRAL,
+    val isAtWar: Boolean = false,
+    val hasTradeAgreement: Boolean = false,
+    val hasNonAggressionPact: Boolean = false,
+    val hasAlliance: Boolean = false,
+    val warScore: Int = 0, // Positive = Winning, Negative = Losing
+    val warExhaustion: Int = 0
+)
+
+data class AiNation(
+    val id: String,
+    val name: String,
+    val governmentType: GovernmentType,
+    val personality: AiPersonality,
+    val stats: CountryStats,
+    val treasury: Int = 5000,
+    val isAlive: Boolean = true
+)
+
+enum class AiPersonality {
+    AGGRESSIVE, // Military focus, likely to war
+    PEACEFUL,   // Stability focus, likes alliances
+    TRADER,     // Economy focus, likes trade deals
+    SCIENTIFIC, // Tech focus, neutral
+    ISOLATIONIST // Hard to influence
+}
+
+data class GlobalMarket(
+    val foodPrice: Int = 10,
+    val energyPrice: Int = 15,
+    val materialsPrice: Int = 20,
+    val globalInstability: Int = 10 // 0-100, affects prices
 )
 
 data class Country(
@@ -104,55 +138,10 @@ data class Country(
     val policies: List<String> = emptyList()
 )
 
-data class GameEvent(
-    val id: String,
-    val title: String,
-    val description: String,
-    val category: EventCategory,
-    val severity: EventSeverity,
-    val effect: (CountryStats) -> CountryStats,
-    val options: List<EventOption>,
-    val prerequisites: ((Country) -> Boolean)? = null
-)
-
-enum class EventCategory {
-    ECONOMIC,
-    MILITARY,
-    POLITICAL,
-    DISASTER,
-    SCIENTIFIC,
-    CULTURAL,
-    DIPLOMATIC,
-    ENVIRONMENTAL,
-    SOCIAL
-}
-
-enum class EventSeverity {
-    MINOR,
-    MODERATE,
-    MAJOR,
-    CATASTROPHIC
-}
-
-data class EventOption(
-    val label: String,
-    val description: String,
-    val effect: (CountryStats, Int, Resources) -> Triple<CountryStats, Int, Resources>
-)
-
-enum class GameOverReason {
-    BANKRUPTCY,
-    REVOLUTION,
-    INVASION,
-    TECH_FAILURE,
-    FAMINE,
-    ENVIRONMENTAL_COLLAPSE,
-    NUCLEAR_WINTER,
-    CIVIL_WAR
-}
-
 data class GameState(
     val country: Country,
+    val aiNations: List<AiNation> = emptyList(),
+    val globalMarket: GlobalMarket = GlobalMarket(),
     val isGameOver: Boolean = false,
     val gameOverReason: GameOverReason? = null,
     val lastEvent: GameEvent? = null,
