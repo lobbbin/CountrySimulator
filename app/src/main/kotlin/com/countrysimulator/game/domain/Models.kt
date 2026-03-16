@@ -137,7 +137,7 @@ enum class EventSeverity {
 data class EventOption(
     val label: String,
     val description: String,
-    val effect: (CountryStats, Int, Resources) -> Pair<CountryStats, Int, Resources>
+    val effect: (CountryStats, Int, Resources) -> Triple<CountryStats, Int, Resources>
 )
 
 enum class GameOverReason {

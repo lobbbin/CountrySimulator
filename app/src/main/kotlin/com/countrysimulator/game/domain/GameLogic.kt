@@ -370,7 +370,7 @@ object GameLogic {
             description = "Your power grids are failing due to resource depletion.",
             category = EventCategory.ENVIRONMENTAL,
             severity = EventSeverity.MAJOR,
-            effect = { stats -> stats.copy(energy = (stats.energy - 20).coerceAtLeast(0), economy = (stats.economy - 10).coerceAtLeast(0), stability = (stats.stability - 5).coerceAtLeast(0)) },
+            effect = { stats -> stats.copy(economy = (stats.economy - 10).coerceAtLeast(0), stability = (stats.stability - 5).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Build Nuclear Plant", "Long-term solution") { stats, treasury, resources ->
                     Triple(stats.copy(technology = stats.technology + 10), treasury - 5000, resources.copy(energy = resources.maxEnergy, materials = (resources.materials - 30).coerceAtLeast(0)))
@@ -378,7 +378,7 @@ object GameLogic {
                 EventOption("Invest in Renewables", "Green energy") { stats, treasury, resources ->
                     Triple(stats.copy(environment = stats.environment + 10, technology = stats.technology + 5), treasury - 3500, resources.copy(energy = (resources.energy + 50).coerceAtMost(resources.maxEnergy)))
                 },
-                EventOption("Drill for More", "化石 fuels") { stats, treasury, resources ->
+                EventOption("Drill for More", "Fossil fuels") { stats, treasury, resources ->
                     Triple(stats.copy(environment = (stats.environment - 10).coerceAtLeast(0)), treasury - 1500, resources.copy(energy = resources.maxEnergy))
                 }
             )
@@ -432,7 +432,7 @@ object GameLogic {
             effect = { stats -> stats.copy(stability = (stats.stability - 30).coerceAtLeast(0), happiness = (stats.happiness - 20).coerceAtLeast(0), economy = (stats.economy - 15).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Step Down", "Allow revolution") { stats, treasury, resources ->
-                    Triple(stats.copy(stability = 30, happiness = 70, governmentType = GovernmentType.DEMOCRACY), treasury, resources)
+                    Triple(stats.copy(stability = 30, happiness = 70), treasury, resources)
                 },
                 EventOption("Crush Rebellion", "Brutal suppression") { stats, treasury, resources ->
                     Triple(stats.copy(military = stats.military + 20, stability = 80, happiness = 10), treasury - 3000, resources)
@@ -492,7 +492,7 @@ object GameLogic {
                     Triple(stats.copy(stability = 50, military = stats.military + 20, economy = stats.economy - 10), treasury - 8000, resources)
                 },
                 EventOption("Lose Power", "New government") { stats, treasury, resources ->
-                    Triple(stats.copy(stability = 30, governmentType = GovernmentType.DEMOCRACY, happiness = 40), treasury - 3000, resources)
+                    Triple(stats.copy(stability = 30, happiness = 40), treasury - 3000, resources)
                 },
                 EventOption("Fragment", "Break into states") { stats, treasury, resources ->
                     Triple(stats.copy(stability = 20, economy = stats.economy - 20, population = (stats.population / 2)), treasury - 5000, resources)
