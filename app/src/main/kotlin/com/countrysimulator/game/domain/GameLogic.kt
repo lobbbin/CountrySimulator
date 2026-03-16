@@ -29,13 +29,13 @@ object GameLogic {
             effect = { stats -> stats.copy(economy = (stats.economy + 10).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Invest in Industry", "Build new factories") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5), treasury - 1000, resources)
+                    Triple(stats.copy(technology = stats.technology + 5), treasury - 1000, resources)
                 },
                 EventOption("Save Treasury", "Bank the profits") { stats, treasury, resources ->
-                    Pair(stats, treasury + 2000, resources)
+                    Triple(stats, treasury + 2000, resources)
                 },
                 EventOption("Distribute Wealth", "Boost citizen morale") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 10), treasury, resources)
+                    Triple(stats.copy(happiness = stats.happiness + 10), treasury, resources)
                 }
             )
         ),
@@ -48,13 +48,13 @@ object GameLogic {
             effect = { stats -> stats.copy(stability = (stats.stability - 15).coerceAtLeast(0), population = (stats.population - 50000).coerceAtLeast(1)) },
             options = listOf(
                 EventOption("Emergency Aid", "Deploy resources") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 5), treasury - 1500, resources)
+                    Triple(stats.copy(happiness = stats.happiness + 5), treasury - 1500, resources)
                 },
                 EventOption("Focus on Military", "Secure the nation") { stats, treasury, resources ->
-                    Pair(stats.copy(military = stats.military + 10), treasury - 500, resources)
+                    Triple(stats.copy(military = stats.military + 10), treasury - 500, resources)
                 },
                 EventOption("Request International Aid", "Ask for help") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 5), treasury + 500, resources)
+                    Triple(stats.copy(stability = stats.stability + 5), treasury + 500, resources)
                 }
             )
         ),
@@ -67,13 +67,13 @@ object GameLogic {
             effect = { stats -> stats.copy(technology = (stats.technology + 15).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Patent Technology", "Commercialize it") { stats, treasury, resources ->
-                    Pair(stats.copy(economy = stats.economy + 10), treasury + 3000, resources)
+                    Triple(stats.copy(economy = stats.economy + 10), treasury + 3000, resources)
                 },
                 EventOption("Share with World", "Build relations") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 10), treasury, resources)
+                    Triple(stats.copy(stability = stats.stability + 10), treasury, resources)
                 },
                 EventOption("Military Application", "Weaponize it") { stats, treasury, resources ->
-                    Pair(stats.copy(military = stats.military + 15), treasury - 1000, resources)
+                    Triple(stats.copy(military = stats.military + 15), treasury - 1000, resources)
                 }
             )
         ),
@@ -87,14 +87,14 @@ object GameLogic {
             options = listOf(
                 EventOption("Fight Back", "Mobilize forces") { stats, treasury, resources ->
                     val won = stats.military > 40
-                    if (won) Pair(stats.copy(military = stats.military + 20, economy = stats.economy + 10), treasury - 2000, resources)
-                    else Pair(stats.copy(military = stats.military - 10, stability = stats.stability - 20), treasury - 3000, resources)
+                    if (won) Triple(stats.copy(military = stats.military + 20, economy = stats.economy + 10), treasury - 2000, resources)
+                    else Triple(stats.copy(military = stats.military - 10, stability = stats.stability - 20), treasury - 3000, resources)
                 },
                 EventOption("Negotiate Peace", "Seek diplomacy") { stats, treasury, resources ->
-                    Pair(stats.copy(economy = stats.economy - 10, stability = stats.stability + 5), treasury - 1000, resources)
+                    Triple(stats.copy(economy = stats.economy - 10, stability = stats.stability + 5), treasury - 1000, resources)
                 },
                 EventOption("Surrender", "Accept defeat") { stats, treasury, resources ->
-                    Pair(stats.copy(military = 10, economy = stats.economy - 20), treasury - 5000, resources)
+                    Triple(stats.copy(military = 10, economy = stats.economy - 20), treasury - 5000, resources)
                 }
             )
         ),
@@ -107,13 +107,13 @@ object GameLogic {
             effect = { stats -> stats.copy(happiness = (stats.happiness - 15).coerceAtLeast(0), stability = (stats.stability - 10).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Grant Reforms", "Meet demands") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 20, economy = stats.economy - 10), treasury - 1500, resources)
+                    Triple(stats.copy(happiness = stats.happiness + 20, economy = stats.economy - 10), treasury - 1500, resources)
                 },
                 EventOption("Suppress Protests", "Use force") { stats, treasury, resources ->
-                    Pair(stats.copy(military = stats.military + 10, happiness = stats.happiness - 10), treasury - 500, resources)
+                    Triple(stats.copy(military = stats.military + 10, happiness = stats.happiness - 10), treasury - 500, resources)
                 },
                 EventOption("Hold Elections", "Democratic solution") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 15, happiness = stats.happiness + 5), treasury - 800, resources)
+                    Triple(stats.copy(stability = stats.stability + 15, happiness = stats.happiness + 5), treasury - 800, resources)
                 }
             )
         ),
@@ -126,13 +126,13 @@ object GameLogic {
             effect = { stats -> stats.copy(economy = (stats.economy + 8).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Accept Deal", "Open markets") { stats, treasury, resources ->
-                    Pair(stats.copy(economy = stats.economy + 15), treasury + 2500, resources.copy(materials = (resources.materials + 20).coerceAtMost(resources.maxMaterials)))
+                    Triple(stats.copy(economy = stats.economy + 15), treasury + 2500, resources.copy(materials = (resources.materials + 20).coerceAtMost(resources.maxMaterials)))
                 },
                 EventOption("Decline", "Stay isolated") { stats, treasury, resources ->
-                    Pair(stats, treasury, resources)
+                    Triple(stats, treasury, resources)
                 },
                 EventOption("Negotiate Better Terms", "Push for more") { stats, treasury, resources ->
-                    Pair(stats.copy(economy = stats.economy + 10), treasury + 1500, resources)
+                    Triple(stats.copy(economy = stats.economy + 10), treasury + 1500, resources)
                 }
             )
         ),
@@ -145,13 +145,13 @@ object GameLogic {
             effect = { stats -> stats.copy(population = (stats.population - 100000).coerceAtLeast(1), happiness = (stats.happiness - 15).coerceAtLeast(0), healthcare = (stats.healthcare - 10).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Lockdown Measures", "Close everything") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 10, economy = stats.economy - 10), treasury - 3000, resources)
+                    Triple(stats.copy(stability = stats.stability + 10, economy = stats.economy - 10), treasury - 3000, resources)
                 },
                 EventOption("Keep Economy Open", "Prioritize business") { stats, treasury, resources ->
-                    Pair(stats.copy(population = (stats.population - 150000).coerceAtLeast(1), economy = stats.economy + 10), treasury - 1000, resources)
+                    Triple(stats.copy(population = (stats.population - 150000).coerceAtLeast(1), economy = stats.economy + 10), treasury - 1000, resources)
                 },
                 EventOption("Medical Response", "Focus on healthcare") { stats, treasury, resources ->
-                    Pair(stats.copy(healthcare = stats.healthcare + 10, population = (stats.population - 50000).coerceAtLeast(1)), treasury - 2500, resources.copy(energy = (resources.energy - 20).coerceAtLeast(0)))
+                    Triple(stats.copy(healthcare = stats.healthcare + 10, population = (stats.population - 50000).coerceAtLeast(1)), treasury - 2500, resources.copy(energy = (resources.energy - 20).coerceAtLeast(0)))
                 }
             )
         ),
@@ -164,13 +164,13 @@ object GameLogic {
             effect = { stats -> stats.copy(happiness = (stats.happiness + 10).coerceAtMost(100), stability = stats.stability + 5) },
             options = listOf(
                 EventOption("Grand Celebration", "Spare no expense") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 15), treasury - 2000, resources)
+                    Triple(stats.copy(happiness = stats.happiness + 15), treasury - 2000, resources)
                 },
                 EventOption("Modest Event", "Keep it simple") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 5), treasury - 500, resources)
+                    Triple(stats.copy(happiness = stats.happiness + 5), treasury - 500, resources)
                 },
                 EventOption("International Festival", "Invite foreigners") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 10, economy = stats.economy + 5), treasury - 1500, resources)
+                    Triple(stats.copy(stability = stats.stability + 10, economy = stats.economy + 5), treasury - 1500, resources)
                 }
             )
         ),
@@ -183,13 +183,13 @@ object GameLogic {
             effect = { stats -> stats.copy(technology = (stats.technology - 5).coerceAtLeast(0), stability = stats.stability - 5) },
             options = listOf(
                 EventOption("Execute Spies", "Show no mercy") { stats, treasury, resources ->
-                    Pair(stats.copy(military = stats.military + 15), treasury, resources)
+                    Triple(stats.copy(military = stats.military + 15), treasury, resources)
                 },
                 EventOption("Exchange for Prisoners", "Diplomatic solution") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 10), treasury + 1000, resources)
+                    Triple(stats.copy(technology = stats.technology + 10), treasury + 1000, resources)
                 },
                 EventOption("Turn Them", "Use as double agents") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 10, technology = stats.technology + 5), treasury - 500, resources)
+                    Triple(stats.copy(stability = stats.stability + 10, technology = stats.technology + 5), treasury - 500, resources)
                 }
             )
         ),
@@ -202,13 +202,13 @@ object GameLogic {
             effect = { stats -> stats.copy(economy = (stats.economy + 12).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Extract Quickly", "Maximum short-term gain") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology - 5, economy = stats.economy + 20, environment = stats.environment - 10), treasury + 5000, resources.copy(materials = (resources.materials + 50).coerceAtMost(resources.maxMaterials)))
+                    Triple(stats.copy(technology = stats.technology - 5, economy = stats.economy + 20, environment = stats.environment - 10), treasury + 5000, resources.copy(materials = (resources.materials + 50).coerceAtMost(resources.maxMaterials)))
                 },
                 EventOption("Sustainable Mining", "Long-term planning") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5, economy = stats.economy + 10), treasury + 2000, resources.copy(materials = (resources.materials + 30).coerceAtMost(resources.maxMaterials)))
+                    Triple(stats.copy(technology = stats.technology + 5, economy = stats.economy + 10), treasury + 2000, resources.copy(materials = (resources.materials + 30).coerceAtMost(resources.maxMaterials)))
                 },
                 EventOption("Research First", "Study the deposits") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 10), treasury - 500, resources.copy(materials = (resources.materials + 15).coerceAtMost(resources.maxMaterials)))
+                    Triple(stats.copy(technology = stats.technology + 10), treasury - 500, resources.copy(materials = (resources.materials + 15).coerceAtMost(resources.maxMaterials)))
                 }
             )
         ),
@@ -221,13 +221,13 @@ object GameLogic {
             effect = { stats -> stats.copy(education = (stats.education + 10).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Invest Heavily", "Build universities") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 15, economy = stats.economy - 5), treasury - 3000, resources)
+                    Triple(stats.copy(technology = stats.technology + 15, economy = stats.economy - 5), treasury - 3000, resources)
                 },
                 EventOption("Modest Improvements", "Basic reforms") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5), treasury - 1000, resources)
+                    Triple(stats.copy(technology = stats.technology + 5), treasury - 1000, resources)
                 },
                 EventOption("Focus on Vocational", "Trade schools") { stats, treasury, resources ->
-                    Pair(stats.copy(economy = stats.economy + 10, technology = stats.technology + 3), treasury - 1500, resources)
+                    Triple(stats.copy(economy = stats.economy + 10, technology = stats.technology + 3), treasury - 1500, resources)
                 }
             )
         ),
@@ -240,13 +240,13 @@ object GameLogic {
             effect = { stats -> stats.copy(healthcare = (stats.healthcare - 15).coerceAtLeast(0), population = (stats.population - 30000).coerceAtLeast(1), happiness = (stats.happiness - 10).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Universal Healthcare", "Free for all") { stats, treasury, resources ->
-                    Pair(stats.copy(healthcare = stats.healthcare + 20, happiness = stats.happiness + 10), treasury - 2500, resources.copy(energy = (resources.energy - 15).coerceAtLeast(0)))
+                    Triple(stats.copy(healthcare = stats.healthcare + 20, happiness = stats.happiness + 10), treasury - 2500, resources.copy(energy = (resources.energy - 15).coerceAtLeast(0)))
                 },
                 EventOption("Private Sector", "Let markets handle it") { stats, treasury, resources ->
-                    Pair(stats.copy(healthcare = stats.healthcare + 5, economy = stats.economy + 5), treasury - 500, resources)
+                    Triple(stats.copy(healthcare = stats.healthcare + 5, economy = stats.economy + 5), treasury - 500, resources)
                 },
                 EventOption("Research Cure", "Find the source") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 10, healthcare = stats.healthcare + 10), treasury - 2000, resources)
+                    Triple(stats.copy(technology = stats.technology + 10, healthcare = stats.healthcare + 10), treasury - 2000, resources)
                 }
             )
         ),
@@ -259,13 +259,13 @@ object GameLogic {
             effect = { stats -> stats.copy(environment = (stats.environment - 20).coerceAtLeast(0), population = (stats.population - 20000).coerceAtLeast(1), happiness = (stats.happiness - 10).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Green Initiative", "Clean up everything") { stats, treasury, resources ->
-                    Pair(stats.copy(environment = stats.environment + 20, economy = stats.economy - 10), treasury - 3500, resources)
+                    Triple(stats.copy(environment = stats.environment + 20, economy = stats.economy - 10), treasury - 3500, resources)
                 },
                 EventOption("Continue Industrialization", "Progress over environment") { stats, treasury, resources ->
-                    Pair(stats.copy(environment = stats.environment - 10, economy = stats.economy + 15), treasury + 1000, resources)
+                    Triple(stats.copy(environment = stats.environment - 10, economy = stats.economy + 15), treasury + 1000, resources)
                 },
                 EventOption("Compromise", "Balanced approach") { stats, treasury, resources ->
-                    Pair(stats.copy(environment = stats.environment + 5, economy = stats.economy + 5), treasury - 1500, resources)
+                    Triple(stats.copy(environment = stats.environment + 5, economy = stats.economy + 5), treasury - 1500, resources)
                 }
             )
         ),
@@ -278,13 +278,13 @@ object GameLogic {
             effect = { stats -> stats.copy(crime = (stats.crime + 15).coerceAtMost(100), economy = (stats.economy - 10).coerceAtLeast(0), happiness = (stats.happiness - 5).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Tough on Crime", "Increase police") { stats, treasury, resources ->
-                    Pair(stats.copy(crime = (stats.crime - 20).coerceAtLeast(0), military = stats.military + 5), treasury - 2000, resources)
+                    Triple(stats.copy(crime = (stats.crime - 20).coerceAtLeast(0), military = stats.military + 5), treasury - 2000, resources)
                 },
                 EventOption("Rehabilitation", "Focus on prevention") { stats, treasury, resources ->
-                    Pair(stats.copy(crime = (stats.crime - 10).coerceAtLeast(0), happiness = stats.happiness + 5), treasury - 1500, resources)
+                    Triple(stats.copy(crime = (stats.crime - 10).coerceAtLeast(0), happiness = stats.happiness + 5), treasury - 1500, resources)
                 },
                 EventOption("Legalize Some Crimes", "Regulate vice") { stats, treasury, resources ->
-                    Pair(stats.copy(crime = (stats.crime - 5).coerceAtLeast(0), economy = stats.economy + 10), treasury + 2000, resources)
+                    Triple(stats.copy(crime = (stats.crime - 5).coerceAtLeast(0), economy = stats.economy + 10), treasury + 2000, resources)
                 }
             )
         ),
@@ -297,13 +297,13 @@ object GameLogic {
             effect = { stats -> stats.copy(stability = (stats.stability + 5).coerceAtMost(100), happiness = (stats.happiness + 5).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Embrace It", "State religion") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 15, happiness = stats.happiness + 10, technology = (stats.technology - 5).coerceAtLeast(0)), treasury - 500, resources)
+                    Triple(stats.copy(stability = stats.stability + 15, happiness = stats.happiness + 10, technology = (stats.technology - 5).coerceAtLeast(0)), treasury - 500, resources)
                 },
                 EventOption("Separate Church and State", "Secular approach") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 5), treasury, resources)
+                    Triple(stats.copy(stability = stats.stability + 5), treasury, resources)
                 },
                 EventOption("Suppress It", "Ban the movement") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability - 10, happiness = stats.happiness - 10), treasury - 500, resources)
+                    Triple(stats.copy(stability = stats.stability - 10, happiness = stats.happiness - 10), treasury - 500, resources)
                 }
             )
         ),
@@ -316,13 +316,13 @@ object GameLogic {
             effect = { stats -> stats.copy(technology = (stats.technology + 10).coerceAtMost(100), economy = (stats.economy + 5).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Welcome Them", "Tax breaks") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 15, economy = stats.economy + 10, environment = (stats.environment - 5).coerceAtLeast(0)), treasury - 2000, resources.copy(energy = (resources.energy - 20).coerceAtLeast(0)))
+                    Triple(stats.copy(technology = stats.technology + 15, economy = stats.economy + 10, environment = (stats.environment - 5).coerceAtLeast(0)), treasury - 2000, resources.copy(energy = (resources.energy - 20).coerceAtLeast(0)))
                 },
                 EventOption("Strict Regulations", "Protect citizens") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5, stability = stats.stability + 5), treasury + 500, resources)
+                    Triple(stats.copy(technology = stats.technology + 5, stability = stats.stability + 5), treasury + 500, resources)
                 },
                 EventOption("Reject Offer", "Keep independence") { stats, treasury, resources ->
-                    Pair(stats, treasury, resources)
+                    Triple(stats, treasury, resources)
                 }
             )
         ),
@@ -335,13 +335,13 @@ object GameLogic {
             effect = { stats -> stats.copy(population = (stats.population + 50000).coerceAtMost(100000000), economy = (stats.economy + 5).coerceAtMost(100), happiness = (stats.happiness - 5).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Open Borders", "Accept everyone") { stats, treasury, resources ->
-                    Pair(stats.copy(population = (stats.population + 100000).coerceAtMost(100000000), economy = stats.economy + 10, happiness = (stats.happiness - 5).coerceAtLeast(0)), treasury - 1500, resources.copy(food = (resources.food - 30).coerceAtLeast(0)))
+                    Triple(stats.copy(population = (stats.population + 100000).coerceAtMost(100000000), economy = stats.economy + 10, happiness = (stats.happiness - 5).coerceAtLeast(0)), treasury - 1500, resources.copy(food = (resources.food - 30).coerceAtLeast(0)))
                 },
                 EventOption("Selective Immigration", "Skilled workers only") { stats, treasury, resources ->
-                    Pair(stats.copy(population = (stats.population + 50000).coerceAtMost(100000000), technology = stats.technology + 5, economy = stats.economy + 5), treasury - 1000, resources.copy(food = (resources.food - 15).coerceAtLeast(0)))
+                    Triple(stats.copy(population = (stats.population + 50000).coerceAtMost(100000000), technology = stats.technology + 5, economy = stats.economy + 5), treasury - 1000, resources.copy(food = (resources.food - 15).coerceAtLeast(0)))
                 },
                 EventOption("Close Borders", "No entry") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 5), treasury + 500, resources)
+                    Triple(stats.copy(stability = stats.stability + 5), treasury + 500, resources)
                 }
             )
         ),
@@ -354,13 +354,13 @@ object GameLogic {
             effect = { stats -> stats.copy(population = (stats.population - 80000).coerceAtLeast(1), happiness = (stats.happiness - 20).coerceAtLeast(0), stability = (stats.stability - 15).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Import Food", "Buy from abroad") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 5, population = (stats.population + 20000).coerceAtMost(100000000)), treasury - 4000, resources.copy(food = resources.maxFood))
+                    Triple(stats.copy(happiness = stats.happiness + 5, population = (stats.population + 20000).coerceAtMost(100000000)), treasury - 4000, resources.copy(food = resources.maxFood))
                 },
                 EventOption("Rationing", "Fair distribution") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 10, happiness = stats.happiness - 5), treasury - 1000, resources.copy(food = (resources.food / 2).coerceAtLeast(10)))
+                    Triple(stats.copy(stability = stats.stability + 10, happiness = stats.happiness - 5), treasury - 1000, resources.copy(food = (resources.food / 2).coerceAtLeast(10)))
                 },
                 EventOption("Let Market Decide", "Survival of fittest") { stats, treasury, resources ->
-                    Pair(stats.copy(population = (stats.population - 50000).coerceAtLeast(1), economy = stats.economy + 5), treasury + 1000, resources.copy(food = (resources.food / 3).coerceAtLeast(10)))
+                    Triple(stats.copy(population = (stats.population - 50000).coerceAtLeast(1), economy = stats.economy + 5), treasury + 1000, resources.copy(food = (resources.food / 3).coerceAtLeast(10)))
                 }
             )
         ),
@@ -373,13 +373,13 @@ object GameLogic {
             effect = { stats -> stats.copy(energy = (stats.energy - 20).coerceAtLeast(0), economy = (stats.economy - 10).coerceAtLeast(0), stability = (stats.stability - 5).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Build Nuclear Plant", "Long-term solution") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 10), treasury - 5000, resources.copy(energy = resources.maxEnergy, materials = (resources.materials - 30).coerceAtLeast(0)))
+                    Triple(stats.copy(technology = stats.technology + 10), treasury - 5000, resources.copy(energy = resources.maxEnergy, materials = (resources.materials - 30).coerceAtLeast(0)))
                 },
                 EventOption("Invest in Renewables", "Green energy") { stats, treasury, resources ->
-                    Pair(stats.copy(environment = stats.environment + 10, technology = stats.technology + 5), treasury - 3500, resources.copy(energy = (resources.energy + 50).coerceAtMost(resources.maxEnergy)))
+                    Triple(stats.copy(environment = stats.environment + 10, technology = stats.technology + 5), treasury - 3500, resources.copy(energy = (resources.energy + 50).coerceAtMost(resources.maxEnergy)))
                 },
                 EventOption("Drill for More", "化石 fuels") { stats, treasury, resources ->
-                    Pair(stats.copy(environment = (stats.environment - 10).coerceAtLeast(0)), treasury - 1500, resources.copy(energy = resources.maxEnergy))
+                    Triple(stats.copy(environment = (stats.environment - 10).coerceAtLeast(0)), treasury - 1500, resources.copy(energy = resources.maxEnergy))
                 }
             )
         ),
@@ -393,14 +393,14 @@ object GameLogic {
             options = listOf(
                 EventOption("Loyal Forces", "Fight back") { stats, treasury, resources ->
                     val success = stats.military > 50
-                    if (success) Pair(stats.copy(stability = stats.stability + 20, military = stats.military + 10), treasury - 2000, resources)
-                    else Pair(stats.copy(stability = 10, military = 20), treasury - 5000, resources)
+                    if (success) Triple(stats.copy(stability = stats.stability + 20, military = stats.military + 10), treasury - 2000, resources)
+                    else Triple(stats.copy(stability = 10, military = 20), treasury - 5000, resources)
                 },
                 EventOption("Negotiate", "Share power") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 5, happiness = stats.happiness + 5), treasury - 3000, resources)
+                    Triple(stats.copy(stability = stats.stability + 5, happiness = stats.happiness + 5), treasury - 3000, resources)
                 },
                 EventOption("Flee Country", "Escape to exile") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = 5, happiness = 20), treasury - 10000, resources)
+                    Triple(stats.copy(stability = 5, happiness = 20), treasury - 10000, resources)
                 }
             )
         ),
@@ -413,13 +413,13 @@ object GameLogic {
             effect = { stats -> stats.copy(technology = (stats.technology + 8).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Moon Landing", "Bold initiative") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 20, stability = stats.stability + 10), treasury - 8000, resources.copy(materials = (resources.materials - 30).coerceAtLeast(0)))
+                    Triple(stats.copy(technology = stats.technology + 20, stability = stats.stability + 10), treasury - 8000, resources.copy(materials = (resources.materials - 30).coerceAtLeast(0)))
                 },
                 EventOption("Satellite Network", "Practical benefits") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 10, economy = stats.economy + 10), treasury - 3000, resources)
+                    Triple(stats.copy(technology = stats.technology + 10, economy = stats.economy + 10), treasury - 3000, resources)
                 },
                 EventOption("Research Only", "Stay grounded") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5), treasury - 1000, resources)
+                    Triple(stats.copy(technology = stats.technology + 5), treasury - 1000, resources)
                 }
             )
         ),
@@ -432,13 +432,13 @@ object GameLogic {
             effect = { stats -> stats.copy(stability = (stats.stability - 30).coerceAtLeast(0), happiness = (stats.happiness - 20).coerceAtLeast(0), economy = (stats.economy - 15).coerceAtLeast(0)) },
             options = listOf(
                 EventOption("Step Down", "Allow revolution") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = 30, happiness = 70, governmentType = GovernmentType.DEMOCRACY), treasury, resources)
+                    Triple(stats.copy(stability = 30, happiness = 70, governmentType = GovernmentType.DEMOCRACY), treasury, resources)
                 },
                 EventOption("Crush Rebellion", "Brutal suppression") { stats, treasury, resources ->
-                    Pair(stats.copy(military = stats.military + 20, stability = 80, happiness = 10), treasury - 3000, resources)
+                    Triple(stats.copy(military = stats.military + 20, stability = 80, happiness = 10), treasury - 3000, resources)
                 },
                 EventOption("Reform Government", "Meet in middle") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 20, happiness = stats.happiness + 15, economy = stats.economy - 5), treasury - 2000, resources)
+                    Triple(stats.copy(stability = stats.stability + 20, happiness = stats.happiness + 15, economy = stats.economy - 5), treasury - 2000, resources)
                 }
             )
         ),
@@ -451,13 +451,13 @@ object GameLogic {
             effect = { stats -> stats.copy(economy = (stats.economy + 5).coerceAtMost(100), stability = (stats.stability + 5).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Accept Aid", "With conditions") { stats, treasury, resources ->
-                    Pair(stats.copy(education = stats.education + 10, healthcare = stats.healthcare + 10), treasury + 3000, resources.copy(food = (resources.food + 30).coerceAtMost(resources.maxFood)))
+                    Triple(stats.copy(education = stats.education + 10, healthcare = stats.healthcare + 10), treasury + 3000, resources.copy(food = (resources.food + 30).coerceAtMost(resources.maxFood)))
                 },
                 EventOption("Reject Aid", "Stay independent") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = stats.stability + 5), treasury, resources)
+                    Triple(stats.copy(stability = stats.stability + 5), treasury, resources)
                 },
                 EventOption("Negotiate Better", "More conditions") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5), treasury + 1500, resources)
+                    Triple(stats.copy(technology = stats.technology + 5), treasury + 1500, resources)
                 }
             )
         ),
@@ -470,13 +470,13 @@ object GameLogic {
             effect = { stats -> stats.copy(technology = (stats.technology + 12).coerceAtMost(100), economy = (stats.economy + 5).coerceAtMost(100)) },
             options = listOf(
                 EventOption("Embrace AI", "Lead the revolution") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 20, economy = stats.economy + 15, happiness = (stats.happiness - 5).coerceAtLeast(0)), treasury - 2500, resources)
+                    Triple(stats.copy(technology = stats.technology + 20, economy = stats.economy + 15, happiness = (stats.happiness - 5).coerceAtLeast(0)), treasury - 2500, resources)
                 },
                 EventOption("Regulate Heavily", "Protect jobs") { stats, treasury, resources ->
-                    Pair(stats.copy(technology = stats.technology + 5, happiness = stats.happiness + 10), treasury - 1000, resources)
+                    Triple(stats.copy(technology = stats.technology + 5, happiness = stats.happiness + 10), treasury - 1000, resources)
                 },
                 EventOption("Ban AI", "Traditional approach") { stats, treasury, resources ->
-                    Pair(stats.copy(happiness = stats.happiness + 5, stability = stats.stability + 5), treasury, resources)
+                    Triple(stats.copy(happiness = stats.happiness + 5, stability = stats.stability + 5), treasury, resources)
                 }
             )
         ),
@@ -489,13 +489,13 @@ object GameLogic {
             effect = { stats -> stats.copy(population = (stats.population - 200000).coerceAtLeast(1), economy = (stats.economy - 30).coerceAtLeast(0), stability = 0) },
             options = listOf(
                 EventOption("Win Civil War", "Unify the nation") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = 50, military = stats.military + 20, economy = stats.economy - 10), treasury - 8000, resources)
+                    Triple(stats.copy(stability = 50, military = stats.military + 20, economy = stats.economy - 10), treasury - 8000, resources)
                 },
                 EventOption("Lose Power", "New government") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = 30, governmentType = GovernmentType.DEMOCRACY, happiness = 40), treasury - 3000, resources)
+                    Triple(stats.copy(stability = 30, governmentType = GovernmentType.DEMOCRACY, happiness = 40), treasury - 3000, resources)
                 },
                 EventOption("Fragment", "Break into states") { stats, treasury, resources ->
-                    Pair(stats.copy(stability = 20, economy = stats.economy - 20, population = (stats.population / 2)), treasury - 5000, resources)
+                    Triple(stats.copy(stability = 20, economy = stats.economy - 20, population = (stats.population / 2)), treasury - 5000, resources)
                 }
             )
         )
