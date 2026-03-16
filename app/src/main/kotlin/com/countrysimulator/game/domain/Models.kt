@@ -148,3 +148,50 @@ data class GameState(
     val eventHistory: List<String> = emptyList(),
     val newsHeadline: String? = null
 )
+
+data class GameEvent(
+    val id: String,
+    val title: String,
+    val description: String,
+    val category: EventCategory,
+    val severity: EventSeverity,
+    val effect: (CountryStats) -> CountryStats,
+    val options: List<EventOption>,
+    val prerequisites: ((Country) -> Boolean)? = null
+)
+
+enum class EventCategory {
+    ECONOMIC,
+    MILITARY,
+    POLITICAL,
+    DISASTER,
+    SCIENTIFIC,
+    CULTURAL,
+    DIPLOMATIC,
+    ENVIRONMENTAL,
+    SOCIAL
+}
+
+enum class EventSeverity {
+    MINOR,
+    MODERATE,
+    MAJOR,
+    CATASTROPHIC
+}
+
+data class EventOption(
+    val label: String,
+    val description: String,
+    val effect: (CountryStats, Int, Resources) -> Triple<CountryStats, Int, Resources>
+)
+
+enum class GameOverReason {
+    BANKRUPTCY,
+    REVOLUTION,
+    INVASION,
+    TECH_FAILURE,
+    FAMINE,
+    ENVIRONMENTAL_COLLAPSE,
+    NUCLEAR_WINTER,
+    CIVIL_WAR
+}
