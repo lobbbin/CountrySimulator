@@ -21,29 +21,17 @@ import com.countrysimulator.game.domain.GovernmentType
 fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val darkColorScheme = darkColorScheme().copy(
-        primary = androidx.compose.ui.graphics.Color(0xFF1a237e),
-        secondary = androidx.compose.ui.graphics.Color(0xFFffd700),
-        tertiary = androidx.compose.ui.graphics.Color(0xFF7c4dff),
-        background = androidx.compose.ui.graphics.Color(0xFF121212),
-        surface = androidx.compose.ui.graphics.Color(0xFF1e1e1e),
-        onPrimary = androidx.compose.ui.graphics.Color.White,
-        onSecondary = androidx.compose.ui.graphics.Color.Black,
-        onBackground = androidx.compose.ui.graphics.Color.White,
-        onSurface = androidx.compose.ui.graphics.Color.White
-    )
-
-    MaterialTheme(colorScheme = darkColorScheme) {
+    MaterialTheme {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(darkColorScheme.background)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             when {
                 uiState.isLoading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
-                        color = darkColorScheme.secondary
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
                 uiState.showNewGameDialog -> {
