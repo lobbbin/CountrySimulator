@@ -23,7 +23,8 @@ data class GameUiState(
     val showNewGameDialog: Boolean = false,
     val showEventDialog: Boolean = false,
     val currentEvent: GameEvent? = null,
-    val incomeThisTurn: Int = 0
+    val incomeThisTurn: Int = 0,
+    val newsHeadline: String? = null
 )
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
@@ -59,13 +60,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startNewGame(name: String, governmentType: GovernmentType) {
-        val newCountry = Country(
-            name = name,
-            governmentType = governmentType,
-            stats = CountryStats(),
-            year = 2024,
-            treasury = 10000
-        )
+        val newCountry = GameLogic.generateInitialCountry(name, governmentType)
 
         viewModelScope.launch {
             repository.saveGame(newCountry)
@@ -88,7 +83,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 gameState = newState,
                 showEventDialog = newState.lastEvent != null,
                 currentEvent = newState.lastEvent,
-                incomeThisTurn = GameLogic.calculateTurnIncome(newState.country)
+                incomeThisTurn = GameLogic.calculateTurnIncome(newState.country),
+                newsHeadline = newState.newsHeadline
             )
         }
     }
@@ -98,11 +94,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val currentState = _uiState.value.gameState ?: return
 
         val option = event.options.getOrNull(optionIndex) ?: return
-        val (newStats, newTreasury) = option.effect(currentState.country.stats, currentState.country.treasury)
+        val (newStats, newTreasury, newResources) = option.effect(
+            currentState.country.stats,
+            currentState.country.treasury,
+            currentState.country.resources
+        )
 
         val updatedCountry = currentState.country.copy(
             stats = newStats,
-            treasury = newTreasury
+            treasury = newTreasury,
+            resources = newResources
         )
 
         viewModelScope.launch {
@@ -203,6 +204,131 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun investInEducation() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 1200) return
+
+        val newCountry = currentState.country.copy(
+            stats = currentState.country.stats.copy(education = (currentState.country.stats.education + 10).coerceAtMost(100)),
+            treasury = currentState.country.treasury - 1200
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
+    fun investInHealthcare() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 1000) return
+
+        val newCountry = currentState.country.copy(
+            stats = currentState.country.stats.copy(healthcare = (currentState.country.stats.healthcare + 10).coerceAtMost(100)),
+            treasury = currentState.country.treasury - 1000
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
+    fun improveEnvironment() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 1500) return
+
+        val newCountry = currentState.country.copy(
+            stats = currentState.country.stats.copy(environment = (currentState.country.stats.environment + 10).coerceAtMost(100)),
+            treasury = currentState.country.treasury - 1500
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
+    fun fightCrime() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 800) return
+
+        val newCountry = currentState.country.copy(
+            stats = currentState.country.stats.copy(crime = (currentState.country.stats.crime - 10).coerceAtLeast(0)),
+            treasury = currentState.country.treasury - 800
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
+    fun buyFood() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 500) return
+
+        val newCountry = currentState.country.copy(
+            resources = currentState.country.resources.copy(
+                food = (currentState.country.resources.food + 50).coerceAtMost(currentState.country.resources.maxFood)
+            ),
+            treasury = currentState.country.treasury - 500
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
+    fun buyEnergy() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 600) return
+
+        val newCountry = currentState.country.copy(
+            resources = currentState.country.resources.copy(
+                energy = (currentState.country.resources.energy + 50).coerceAtMost(currentState.country.resources.maxEnergy)
+            ),
+            treasury = currentState.country.treasury - 600
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
+    fun buyMaterials() {
+        val currentState = _uiState.value.gameState ?: return
+        if (currentState.country.treasury < 800) return
+
+        val newCountry = currentState.country.copy(
+            resources = currentState.country.resources.copy(
+                materials = (currentState.country.resources.materials + 30).coerceAtMost(currentState.country.resources.maxMaterials)
+            ),
+            treasury = currentState.country.treasury - 800
+        )
+
+        viewModelScope.launch {
+            repository.saveGame(newCountry)
+            _uiState.value = _uiState.value.copy(
+                gameState = currentState.copy(country = newCountry)
+            )
+        }
+    }
+
     fun restartGame() {
         viewModelScope.launch {
             repository.clearGame()
@@ -211,17 +337,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 gameState = null,
                 showNewGameDialog = true,
                 showEventDialog = false,
-                currentEvent = null
+                currentEvent = null,
+                newsHeadline = null
             )
         }
     }
 
     fun getGameOverMessage(reason: GameOverReason): String {
         return when (reason) {
-            GameOverReason.BANKRUPTCY -> "Your country has gone bankrupt! The government has collapsed."
-            GameOverReason.REVOLUTION -> "The people have revolted! Your regime has been overthrown."
+            GameOverReason.BANKRUPTCY -> "Your country has gone bankrupt! The government has collapsed due to unsustainable debt."
+            GameOverReason.REVOLUTION -> "The people have revolted! Your regime has been overthrown by angry citizens."
             GameOverReason.INVASION -> "Your military was too weak to defend the nation. Invaders have conquered your country."
-            GameOverReason.TECH_FAILURE -> "Your nation fell behind technologically and became obsolete."
+            GameOverReason.TECH_FAILURE -> "Your nation fell behind technologically and became obsolete in the modern world."
+            GameOverReason.FAMINE -> "Widespread famine has devastated your population. The nation can no longer sustain itself."
+            GameOverReason.ENVIRONMENTAL_COLLAPSE -> "Environmental collapse has made your nation uninhabitable. Mass exodus ensues."
+            GameOverReason.NUCLEAR_WINTER -> "Nuclear war has brought on a devastating winter. Civilization has collapsed."
+            GameOverReason.CIVIL_WAR -> "The nation has split into warring factions. Civil war has destroyed everything."
         }
     }
 }
