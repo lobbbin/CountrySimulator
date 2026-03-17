@@ -73,7 +73,8 @@ data class CountryStats(
     val environment: Int = 50,
     val crime: Int = 20,
     val corruption: Int = 10, // 0-100
-    val propaganda: Int = 0    // 0-100
+    val propaganda: Int = 0,    // 0-100
+    val softPower: Int = 0      // 0-100 (New)
 )
 
 data class Resources(
@@ -98,9 +99,17 @@ data class DiplomaticRelation(
     val hasTradeAgreement: Boolean = false,
     val hasNonAggressionPact: Boolean = false,
     val hasAlliance: Boolean = false,
-    val warScore: Int = 0, // Positive = Winning, Negative = Losing
-    val warExhaustion: Int = 0
+    val warScore: Int = 0,
+    val warExhaustion: Int = 0,
+    val sanctions: List<SanctionType> = emptyList(), // Sanctions imposed BY us ON them
+    val isSpying: Boolean = false
 )
+
+enum class SanctionType {
+    TRADE_EMBARGO,
+    ARMS_EMBARGO,
+    TRAVEL_BAN
+}
 
 data class AiNation(
     val id: String,
@@ -109,7 +118,8 @@ data class AiNation(
     val personality: AiPersonality,
     val stats: CountryStats,
     val treasury: Int = 5000,
-    val isAlive: Boolean = true
+    val isAlive: Boolean = true,
+    val isUNMember: Boolean = true
 )
 
 enum class AiPersonality {
@@ -120,6 +130,55 @@ enum class AiPersonality {
     ISOLATIONIST // Hard to influence
 }
 
+// --- United Nations Models ---
+data class UnitedNations(
+    val memberCount: Int = 0,
+    val activeResolutions: List<UNResolution> = emptyList(),
+    val passedResolutions: List<UNResolution> = emptyList()
+)
+
+data class UNResolution(
+    val id: String,
+    val type: UNResolutionType,
+    val targetNationId: String?, // Null if general
+    val description: String,
+    val yearProposed: Int,
+    val votesFor: Int = 0,
+    val votesAgainst: Int = 0,
+    val status: ResolutionStatus = ResolutionStatus.PROPOSED
+)
+
+enum class UNResolutionType {
+    CONDEMNATION,
+    SANCTIONS,
+    PEACEKEEPING_MISSION,
+    HUMANITARIAN_AID,
+    GLOBAL_INITIATIVE
+}
+
+enum class ResolutionStatus {
+    PROPOSED, PASSED, FAILED
+}
+
+// --- Espionage Models ---
+data class SpyMission(
+    val id: String,
+    val targetNationId: String,
+    val targetNationName: String,
+    val type: SpyMissionType,
+    val successChance: Int,
+    val turnsRemaining: Int,
+    val costPerTurn: Int
+)
+
+enum class SpyMissionType(val displayName: String, val cost: Int, val duration: Int) {
+    GATHER_INTEL("Gather Intel", 200, 2),
+    STEAL_TECH("Steal Technology", 500, 4),
+    SABOTAGE_ECONOMY("Sabotage Economy", 800, 3),
+    INCITE_UNREST("Incite Unrest", 600, 5),
+    STAGE_COUP("Stage Coup", 2000, 8)
+}
+
 data class GlobalMarket(
     val foodPrice: Int = 10,
     val energyPrice: Int = 15,
@@ -127,6 +186,7 @@ data class GlobalMarket(
     val globalInstability: Int = 10 // 0-100, affects prices
 )
 
+// ... Ideology, PoliticalParty, Law, PoliticalFaction, Minister, Election ... (Keep as is)
 enum class Ideology(val displayName: String) {
     LIBERAL("Liberal"),
     CONSERVATIVE("Conservative"),
@@ -202,7 +262,10 @@ data class Country(
     val factions: List<PoliticalFaction> = emptyList(),
     val ministers: List<Minister> = emptyList(),
     val election: Election? = null,
-    val currentTermYear: Int = 0
+    val currentTermYear: Int = 0,
+    // V6.0 fields
+    val unitedNations: UnitedNations = UnitedNations(),
+    val activeSpyMissions: List<SpyMission> = emptyList()
 )
 
 data class GameState(

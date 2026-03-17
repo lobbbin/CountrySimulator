@@ -649,6 +649,7 @@ object GameLogic {
             when (minister.role) {
                 MinisterRole.ECONOMY -> newStats = newStats.copy(economy = (newStats.economy + minister.skill / 20).coerceAtMost(100))
                 MinisterRole.DEFENSE -> newStats = newStats.copy(military = (newStats.military + minister.skill / 20).coerceAtMost(100))
+                MinisterRole.FOREIGN_AFFAIRS -> newStats = newStats.copy(softPower = (newStats.softPower + minister.skill / 20).coerceAtMost(100))
                 else -> {}
             }
         }
@@ -673,6 +674,63 @@ object GameLogic {
             newStats = newStats.copy(stability = (newStats.stability - 2).coerceAtLeast(0))
         }
 
+        // --- New V6.0 Logic ---
+        
+        // Sanctions Effect
+        val sanctionsPenalty = country.diplomaticRelations.sumOf { rel -> rel.sanctions.size * 5 } // 5% economy penalty per sanction type per nation
+        if (sanctionsPenalty > 0) {
+            newStats = newStats.copy(economy = (newStats.economy - sanctionsPenalty).coerceAtLeast(0))
+        }
+
+        // Process Espionage
+        var spyMissions = country.activeSpyMissions.map { it.copy(turnsRemaining = it.turnsRemaining - 1) }
+        val completedMissions = spyMissions.filter { it.turnsRemaining <= 0 }
+        spyMissions = spyMissions.filter { it.turnsRemaining > 0 }
+        
+        val spyEvents = mutableListOf<String>()
+        completedMissions.forEach { mission ->
+            val success = (1..100).random() <= mission.successChance
+            if (success) {
+                spyEvents.add("Mission Success: ${mission.type.displayName} in ${mission.targetNationName}")
+                when (mission.type) {
+                    SpyMissionType.GATHER_INTEL -> newStats = newStats.copy(technology = (newStats.technology + 5).coerceAtMost(100))
+                    SpyMissionType.STEAL_TECH -> newStats = newStats.copy(technology = (newStats.technology + 10).coerceAtMost(100))
+                    SpyMissionType.SABOTAGE_ECONOMY -> { /* Effect on AI is handled abstractly or relation drop */ }
+                    SpyMissionType.INCITE_UNREST -> { /* handled abstractly */ }
+                    SpyMissionType.STAGE_COUP -> { /* handled abstractly */ }
+                }
+            } else {
+                spyEvents.add("Mission Failed: Agent caught in ${mission.targetNationName}")
+                newStats = newStats.copy(softPower = (newStats.softPower - 10).coerceAtLeast(0))
+                // Relation penalty logic would go here
+            }
+        }
+        
+        // UN Process (Simplified: Random resolution every 4 turns)
+        var un = country.unitedNations
+        if (country.turnCount % 4 == 0) {
+            val newResolution = generateRandomResolution(country.year, currentState.aiNations)
+            un = un.copy(activeResolutions = un.activeResolutions + newResolution)
+        }
+        
+        // Auto-vote on active resolutions (Simplified: auto-pass/fail for now based on randomness, player vote handled in UI later)
+        val processedResolutions = un.activeResolutions.map { res ->
+            val passed = (1..100).random() > 40 // 60% pass rate
+            res.copy(
+                status = if (passed) ResolutionStatus.PASSED else ResolutionStatus.FAILED,
+                votesFor = if (passed) (un.memberCount / 2 + 1..un.memberCount).random() else (0..un.memberCount / 2).random(),
+                votesAgainst = (0..un.memberCount / 2).random() // visual only
+            )
+        }
+        
+        un = un.copy(
+            activeResolutions = emptyList(),
+            passedResolutions = un.passedResolutions + processedResolutions.filter { it.status == ResolutionStatus.PASSED }
+        )
+
+        // Soft Power Calculation
+        newStats = newStats.copy(softPower = ((newStats.economy + newStats.happiness + newStats.technology) / 3).coerceIn(0, 100))
+
         // 3. Process AI Turns
         val newAiNations = currentState.aiNations.map { processAiTurn(it, currentState.globalMarket) }
 
@@ -685,7 +743,7 @@ object GameLogic {
         )
 
         // 5. Random Events (including new Political ones)
-        val allEvents = events + politicalEvents
+        val allEvents = events + politicalEvents + diplomaticEvents
         val eventRoll = (1..100).random()
         val eventThreshold = 100 - newStats.stability + 20
         val event = if (eventRoll <= eventThreshold && allEvents.isNotEmpty()) {
@@ -733,7 +791,9 @@ object GameLogic {
             turnCount = country.turnCount + 1,
             factions = newFactions,
             politicalParties = newParties,
-            currentTermYear = country.currentTermYear + 1
+            currentTermYear = country.currentTermYear + 1,
+            unitedNations = un,
+            activeSpyMissions = spyMissions
         )
 
         // Auto-trigger election every 4 years in Democracy
@@ -749,6 +809,11 @@ object GameLogic {
         event?.let {
             newEventHistory.add("Year ${finalCountry.year}: ${it.title}")
         }
+        spyEvents.forEach { newEventHistory.add("Year ${finalCountry.year}: $it") }
+        processedResolutions.forEach { 
+            if (it.status == ResolutionStatus.PASSED) newEventHistory.add("UN: ${it.description} PASSED")
+            else newEventHistory.add("UN: ${it.description} FAILED")
+        }
         newEventHistory.addAll(country.turnCount.coerceAtMost(9).let { country.eventHistory.take(it) })
 
         return currentState.copy(
@@ -759,59 +824,66 @@ object GameLogic {
             gameOverReason = gameOverReason,
             lastEvent = event,
             eventHistory = newEventHistory,
-            newsHeadline = event?.title // Simplified headline
+            newsHeadline = event?.title ?: spyEvents.firstOrNull() // Simplified headline
         )
     }
 
-    private val politicalEvents = listOf(
+    private fun generateRandomResolution(year: Int, aiNations: List<AiNation>): UNResolution {
+        val type = UNResolutionType.values().random()
+        val target = if (type == UNResolutionType.CONDEMNATION || type == UNResolutionType.SANCTIONS) {
+            aiNations.randomOrNull()?.id
+        } else null
+        
+        val desc = when(type) {
+            UNResolutionType.CONDEMNATION -> "Condemn human rights violations in a member state."
+            UNResolutionType.SANCTIONS -> "Impose economic sanctions on aggressive nation."
+            UNResolutionType.PEACEKEEPING_MISSION -> "Deploy peacekeepers to conflict zone."
+            UNResolutionType.HUMANITARIAN_AID -> "Send emergency aid to famine-struck region."
+            UNResolutionType.GLOBAL_INITIATIVE -> "Global agreement on climate change goals."
+        }
+
+        return UNResolution(
+            id = "res_${System.currentTimeMillis()}",
+            type = type,
+            targetNationId = target,
+            description = desc,
+            yearProposed = year
+        )
+    }
+
+    private val diplomaticEvents = listOf(
         GameEvent(
-            id = "corruption_scandal",
-            title = "Corruption Scandal",
-            description = "A major news outlet has exposed a bribery ring in your cabinet!",
-            category = EventCategory.POLITICAL,
+            id = "refugee_crisis",
+            title = "Refugee Crisis",
+            description = "Thousands of refugees are arriving from a war-torn neighbor.",
+            category = EventCategory.DIPLOMATIC,
             severity = EventSeverity.MAJOR,
-            effect = { stats -> stats.copy(stability = (stats.stability - 15).coerceAtLeast(0), happiness = (stats.happiness - 10).coerceAtLeast(0), corruption = (stats.corruption + 10).coerceAtMost(100)) },
+            effect = { stats -> stats.copy(population = (stats.population + 50000).coerceAtMost(100000000), stability = (stats.stability - 10).coerceAtLeast(0)) },
             options = listOf(
-                EventOption("Fire Involved Ministers", "Public purge") { stats, treasury, resources ->
-                    Triple(stats.copy(corruption = (stats.corruption - 20).coerceAtLeast(0), stability = stats.stability + 5), treasury - 500, resources)
+                EventOption("Accept Refugees", "Humanitarian duty") { stats, treasury, resources ->
+                    Triple(stats.copy(softPower = (stats.softPower + 15).coerceAtMost(100), economy = (stats.economy - 5).coerceAtLeast(0)), treasury - 2000, resources.copy(food = (resources.food - 50).coerceAtLeast(0)))
                 },
-                EventOption("Cover Up", "Silence the media") { stats, treasury, resources ->
-                    Triple(stats.copy(happiness = stats.happiness - 10, stability = stats.stability + 10), treasury - 2000, resources)
-                },
-                EventOption("Ignore", "Let it blow over") { stats, treasury, resources ->
-                    Triple(stats.copy(stability = stats.stability - 10), treasury, resources)
+                EventOption("Close Borders", "Security first") { stats, treasury, resources ->
+                    Triple(stats.copy(softPower = (stats.softPower - 15).coerceAtLeast(0), stability = stats.stability + 5), treasury - 500, resources)
                 }
             )
         ),
         GameEvent(
-            id = "referendum_demand",
-            title = "Referendum Demand",
-            description = "The people are demanding a referendum on constitutional changes.",
-            category = EventCategory.POLITICAL,
+            id = "border_dispute",
+            title = "Border Dispute",
+            description = "A neighbor claims part of your territory as their own.",
+            category = EventCategory.DIPLOMATIC,
             severity = EventSeverity.MODERATE,
             effect = { stats -> stats.copy(stability = (stats.stability - 5).coerceAtLeast(0)) },
             options = listOf(
-                EventOption("Hold Referendum", "Let the people decide") { stats, treasury, resources ->
-                    Triple(stats.copy(happiness = stats.happiness + 15, stability = stats.stability + 10), treasury - 1000, resources)
+                EventOption("Military Show of Force", "Deploy troops") { stats, treasury, resources ->
+                    Triple(stats.copy(military = stats.military + 5, stability = stats.stability + 5, softPower = (stats.softPower - 5).coerceAtLeast(0)), treasury - 1000, resources)
                 },
-                EventOption("Decline", "Executive authority") { stats, treasury, resources ->
-                    Triple(stats.copy(happiness = stats.happiness - 15, stability = stats.stability - 5), treasury, resources)
-                }
-            )
-        ),
-        GameEvent(
-            id = "ministerial_rivalry",
-            title = "Ministerial Rivalry",
-            description = "Two of your ministers are publicly feuding, causing chaos.",
-            category = EventCategory.POLITICAL,
-            severity = EventSeverity.MINOR,
-            effect = { stats -> stats.copy(stability = (stats.stability - 5).coerceAtLeast(0)) },
-            options = listOf(
-                EventOption("Mediate", "Peace talk") { stats, treasury, resources ->
-                    Triple(stats.copy(stability = stats.stability + 5), treasury - 200, resources)
+                EventOption("International Court", "Legal battle") { stats, treasury, resources ->
+                    Triple(stats.copy(softPower = stats.softPower + 5), treasury - 2000, resources)
                 },
-                EventOption("Dismiss Both", "New blood") { stats, treasury, resources ->
-                    Triple(stats.copy(stability = stats.stability - 10, corruption = (stats.corruption - 5).coerceAtLeast(0)), treasury - 1000, resources)
+                EventOption("Cede Territory", "Avoid conflict") { stats, treasury, resources ->
+                    Triple(stats.copy(stability = stats.stability - 15, happiness = stats.happiness - 10), treasury, resources)
                 }
             )
         )

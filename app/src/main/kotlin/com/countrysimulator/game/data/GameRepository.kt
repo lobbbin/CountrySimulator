@@ -7,21 +7,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.countrysimulator.game.domain.AiNation
-import com.countrysimulator.game.domain.AiPersonality
-import com.countrysimulator.game.domain.Country
-import com.countrysimulator.game.domain.CountryStats
-import com.countrysimulator.game.domain.DiplomaticRelation
-import com.countrysimulator.game.domain.GameLogic
-import com.countrysimulator.game.domain.GameState
-import com.countrysimulator.game.domain.GlobalMarket
-import com.countrysimulator.game.domain.GovernmentType
-import com.countrysimulator.game.domain.RelationStatus
-import com.countrysimulator.game.domain.Resources
+import com.countrysimulator.game.domain.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v3")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v6")
 
 class GameRepository(private val context: Context) {
 
@@ -40,6 +30,7 @@ class GameRepository(private val context: Context) {
         val CRIME = intPreferencesKey("crime")
         val CORRUPTION = intPreferencesKey("corruption")
         val PROPAGANDA = intPreferencesKey("propaganda")
+        val SOFT_POWER = intPreferencesKey("soft_power")
         val FOOD = intPreferencesKey("food")
         val ENERGY = intPreferencesKey("energy")
         val MATERIALS = intPreferencesKey("materials")
@@ -47,7 +38,6 @@ class GameRepository(private val context: Context) {
         val TREASURY = intPreferencesKey("treasury")
         val TURN_COUNT = intPreferencesKey("turn_count")
         
-        // V5 Keys
         val AI_NATIONS = stringPreferencesKey("ai_nations")
         val GLOBAL_MARKET = stringPreferencesKey("global_market")
         val DIPLOMATIC_RELATIONS = stringPreferencesKey("diplomatic_relations")
@@ -56,6 +46,8 @@ class GameRepository(private val context: Context) {
         val POLITICAL_FACTIONS = stringPreferencesKey("political_factions")
         val MINISTERS = stringPreferencesKey("ministers")
         val ELECTION = stringPreferencesKey("election")
+        val UN_RESOLUTIONS = stringPreferencesKey("un_resolutions")
+        val SPY_MISSIONS = stringPreferencesKey("spy_missions")
     }
 
     suspend fun saveGame(gameState: GameState) {
@@ -75,6 +67,7 @@ class GameRepository(private val context: Context) {
             preferences[PreferencesKeys.CRIME] = country.stats.crime
             preferences[PreferencesKeys.CORRUPTION] = country.stats.corruption
             preferences[PreferencesKeys.PROPAGANDA] = country.stats.propaganda
+            preferences[PreferencesKeys.SOFT_POWER] = country.stats.softPower
             preferences[PreferencesKeys.FOOD] = country.resources.food
             preferences[PreferencesKeys.ENERGY] = country.resources.energy
             preferences[PreferencesKeys.MATERIALS] = country.resources.materials
@@ -90,6 +83,8 @@ class GameRepository(private val context: Context) {
             preferences[PreferencesKeys.POLITICAL_FACTIONS] = serializeFactions(country.factions)
             preferences[PreferencesKeys.MINISTERS] = serializeMinisters(country.ministers)
             preferences[PreferencesKeys.ELECTION] = country.election?.let { serializeElection(it) } ?: ""
+            preferences[PreferencesKeys.UN_RESOLUTIONS] = serializeUnResolutions(country.unitedNations.passedResolutions)
+            preferences[PreferencesKeys.SPY_MISSIONS] = serializeSpyMissions(country.activeSpyMissions)
         }
     }
 
@@ -113,6 +108,8 @@ class GameRepository(private val context: Context) {
             val factionsString = preferences[PreferencesKeys.POLITICAL_FACTIONS]
             val ministersString = preferences[PreferencesKeys.MINISTERS]
             val electionString = preferences[PreferencesKeys.ELECTION]
+            val unResolutionsString = preferences[PreferencesKeys.UN_RESOLUTIONS]
+            val spyMissionsString = preferences[PreferencesKeys.SPY_MISSIONS]
 
             val aiNations = if (aiNationsString != null) deserializeAiNations(aiNationsString) else GameLogic.generateAiNations()
             val globalMarket = if (globalMarketString != null) deserializeGlobalMarket(globalMarketString) else GlobalMarket()
@@ -123,6 +120,8 @@ class GameRepository(private val context: Context) {
             val factions = if (factionsString != null) deserializeFactions(factionsString) else emptyList()
             val ministers = if (ministersString != null) deserializeMinisters(ministersString) else emptyList()
             val election = if (electionString != null && electionString.isNotBlank()) deserializeElection(electionString) else null
+            val passedResolutions = if (unResolutionsString != null) deserializeUnResolutions(unResolutionsString) else emptyList()
+            val spyMissions = if (spyMissionsString != null) deserializeSpyMissions(spyMissionsString) else emptyList()
 
             val country = Country(
                 name = name,
@@ -139,7 +138,8 @@ class GameRepository(private val context: Context) {
                     environment = preferences[PreferencesKeys.ENVIRONMENT] ?: 50,
                     crime = preferences[PreferencesKeys.CRIME] ?: 20,
                     corruption = preferences[PreferencesKeys.CORRUPTION] ?: 10,
-                    propaganda = preferences[PreferencesKeys.PROPAGANDA] ?: 0
+                    propaganda = preferences[PreferencesKeys.PROPAGANDA] ?: 0,
+                    softPower = preferences[PreferencesKeys.SOFT_POWER] ?: 0
                 ),
                 resources = Resources(
                     food = preferences[PreferencesKeys.FOOD] ?: 100,
@@ -154,7 +154,9 @@ class GameRepository(private val context: Context) {
                 activeLaws = laws,
                 factions = factions,
                 ministers = ministers,
-                election = election
+                election = election,
+                unitedNations = UnitedNations(memberCount = aiNations.size + 1, passedResolutions = passedResolutions),
+                activeSpyMissions = spyMissions
             )
 
             GameState(
@@ -163,71 +165,6 @@ class GameRepository(private val context: Context) {
                 globalMarket = globalMarket
             )
         }
-    }
-
-    private fun serializeParties(parties: List<PoliticalParty>): String {
-        return parties.joinToString(";") { "${it.name}|${it.ideology.name}|${it.popularity}|${it.influence}" }
-    }
-
-    private fun deserializeParties(data: String): List<PoliticalParty> {
-        if (data.isBlank()) return emptyList()
-        return data.split(";").mapNotNull { entry ->
-            try {
-                val parts = entry.split("|")
-                com.countrysimulator.game.domain.PoliticalParty(parts[0], com.countrysimulator.game.domain.Ideology.valueOf(parts[1]), parts[2].toInt(), parts[3].toInt())
-            } catch (e: Exception) { null }
-        }
-    }
-
-    private fun serializeLaws(laws: List<Law>): String {
-        return laws.joinToString(";") { "${it.id}|${it.name}|${it.description}|${it.isActive}|${it.cost}|${it.stabilityEffect}|${it.economyEffect}|${it.happinessEffect}|${it.corruptionEffect}" }
-    }
-
-    private fun deserializeLaws(data: String): List<Law> {
-        if (data.isBlank()) return emptyList()
-        return data.split(";").mapNotNull { entry ->
-            try {
-                val parts = entry.split("|")
-                com.countrysimulator.game.domain.Law(parts[0], parts[1], parts[2], parts[3].toBoolean(), parts[4].toInt(), parts[5].toInt(), parts[6].toInt(), parts[7].toInt(), parts[8].toInt())
-            } catch (e: Exception) { null }
-        }
-    }
-
-    private fun serializeFactions(factions: List<PoliticalFaction>): String {
-        return factions.joinToString(";") { "${it.name}|${it.loyalty}|${it.power}" }
-    }
-
-    private fun deserializeFactions(data: String): List<PoliticalFaction> {
-        if (data.isBlank()) return emptyList()
-        return data.split(";").mapNotNull { entry ->
-            try {
-                val parts = entry.split("|")
-                com.countrysimulator.game.domain.PoliticalFaction(parts[0], parts[1].toInt(), parts[2].toInt())
-            } catch (e: Exception) { null }
-        }
-    }
-
-    private fun serializeMinisters(ministers: List<Minister>): String {
-        return ministers.joinToString(";") { "${it.id}|${it.name}|${it.role.name}|${it.skill}|${it.corruption}|${it.loyalty}" }
-    }
-
-    private fun deserializeMinisters(data: String): List<Minister> {
-        if (data.isBlank()) return emptyList()
-        return data.split(";").mapNotNull { entry ->
-            try {
-                val parts = entry.split("|")
-                com.countrysimulator.game.domain.Minister(parts[0], parts[1], com.countrysimulator.game.domain.MinisterRole.valueOf(parts[2]), parts[3].toInt(), parts[4].toInt(), parts[5].toInt())
-            } catch (e: Exception) { null }
-        }
-    }
-
-    private fun serializeElection(election: com.countrysimulator.game.domain.Election): String {
-        return "${election.year},${election.isActive},${election.turnsRemaining}"
-    }
-
-    private fun deserializeElection(data: String): com.countrysimulator.game.domain.Election {
-        val parts = data.split(",")
-        return com.countrysimulator.game.domain.Election(parts[0].toInt(), parts[1].toBoolean(), parts[2].toInt())
     }
 
     suspend fun clearGame() {
@@ -255,14 +192,12 @@ class GameRepository(private val context: Context) {
                         economy = parts[5].toInt(),
                         technology = parts[6].toInt(),
                         population = parts[7].toInt(),
-                        stability = parts.getOrElse(10) { "50" }.toInt() // Added later, handle migration
+                        stability = parts.getOrElse(10) { "50" }.toInt()
                     ),
                     treasury = parts[8].toInt(),
                     isAlive = parts[9].toBoolean()
                 )
-            } catch (e: Exception) {
-                null
-            }
+            } catch (e: Exception) { null }
         }
     }
 
@@ -273,20 +208,14 @@ class GameRepository(private val context: Context) {
     private fun deserializeGlobalMarket(data: String): GlobalMarket {
         try {
             val parts = data.split(",")
-            return GlobalMarket(
-                foodPrice = parts[0].toInt(),
-                energyPrice = parts[1].toInt(),
-                materialsPrice = parts[2].toInt(),
-                globalInstability = parts[3].toInt()
-            )
-        } catch (e: Exception) {
-            return GlobalMarket()
-        }
+            return GlobalMarket(parts[0].toInt(), parts[1].toInt(), parts[2].toInt(), parts[3].toInt())
+        } catch (e: Exception) { return GlobalMarket() }
     }
 
     private fun serializeRelations(relations: List<DiplomaticRelation>): String {
         return relations.joinToString(";") { rel ->
-            "${rel.nationName}|${rel.nationId}|${rel.relationScore}|${rel.status.name}|${rel.isAtWar}|${rel.hasTradeAgreement}|${rel.hasNonAggressionPact}|${rel.hasAlliance}"
+            val sanctionsStr = rel.sanctions.joinToString(",") { it.name }
+            "${rel.nationName}|${rel.nationId}|${rel.relationScore}|${rel.status.name}|${rel.isAtWar}|${rel.hasTradeAgreement}|${rel.hasNonAggressionPact}|${rel.hasAlliance}|$sanctionsStr"
         }
     }
 
@@ -295,6 +224,9 @@ class GameRepository(private val context: Context) {
         return data.split(";").mapNotNull { entry ->
             try {
                 val parts = entry.split("|")
+                val sanctions = if (parts.size > 8 && parts[8].isNotBlank()) {
+                    parts[8].split(",").map { SanctionType.valueOf(it) }
+                } else emptyList()
                 DiplomaticRelation(
                     nationName = parts[0],
                     nationId = parts[1],
@@ -303,11 +235,103 @@ class GameRepository(private val context: Context) {
                     isAtWar = parts[4].toBoolean(),
                     hasTradeAgreement = parts[5].toBoolean(),
                     hasNonAggressionPact = parts[6].toBoolean(),
-                    hasAlliance = parts[7].toBoolean()
+                    hasAlliance = parts[7].toBoolean(),
+                    sanctions = sanctions
                 )
-            } catch (e: Exception) {
-                null
-            }
+            } catch (e: Exception) { null }
+        }
+    }
+
+    private fun serializeParties(parties: List<PoliticalParty>): String {
+        return parties.joinToString(";") { "${it.name}|${it.ideology.name}|${it.popularity}|${it.influence}" }
+    }
+
+    private fun deserializeParties(data: String): List<PoliticalParty> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                PoliticalParty(parts[0], Ideology.valueOf(parts[1]), parts[2].toInt(), parts[3].toInt())
+            } catch (e: Exception) { null }
+        }
+    }
+
+    private fun serializeLaws(laws: List<Law>): String {
+        return laws.joinToString(";") { "${it.id}|${it.name}|${it.description}|${it.isActive}|${it.cost}|${it.stabilityEffect}|${it.economyEffect}|${it.happinessEffect}|${it.corruptionEffect}" }
+    }
+
+    private fun deserializeLaws(data: String): List<Law> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                Law(parts[0], parts[1], parts[2], parts[3].toBoolean(), parts[4].toInt(), parts[5].toInt(), parts[6].toInt(), parts[7].toInt(), parts[8].toInt())
+            } catch (e: Exception) { null }
+        }
+    }
+
+    private fun serializeFactions(factions: List<PoliticalFaction>): String {
+        return factions.joinToString(";") { "${it.name}|${it.loyalty}|${it.power}" }
+    }
+
+    private fun deserializeFactions(data: String): List<PoliticalFaction> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                PoliticalFaction(parts[0], parts[1].toInt(), parts[2].toInt())
+            } catch (e: Exception) { null }
+        }
+    }
+
+    private fun serializeMinisters(ministers: List<Minister>): String {
+        return ministers.joinToString(";") { "${it.id}|${it.name}|${it.role.name}|${it.skill}|${it.corruption}|${it.loyalty}" }
+    }
+
+    private fun deserializeMinisters(data: String): List<Minister> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                Minister(parts[0], parts[1], MinisterRole.valueOf(parts[2]), parts[3].toInt(), parts[4].toInt(), parts[5].toInt())
+            } catch (e: Exception) { null }
+        }
+    }
+
+    private fun serializeElection(election: Election): String {
+        return "${election.year},${election.isActive},${election.turnsRemaining}"
+    }
+
+    private fun deserializeElection(data: String): Election {
+        val parts = data.split(",")
+        return Election(parts[0].toInt(), parts[1].toBoolean(), parts[2].toInt())
+    }
+
+    private fun serializeUnResolutions(resolutions: List<UNResolution>): String {
+        return resolutions.joinToString(";") { "${it.id}|${it.type.name}|${it.description}|${it.yearProposed}|${it.status.name}" }
+    }
+
+    private fun deserializeUnResolutions(data: String): List<UNResolution> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                UNResolution(parts[0], UNResolutionType.valueOf(parts[1]), null, parts[2], parts[3].toInt(), 0, 0, ResolutionStatus.valueOf(parts[4]))
+            } catch (e: Exception) { null }
+        }
+    }
+
+    private fun serializeSpyMissions(missions: List<SpyMission>): String {
+        return missions.joinToString(";") { "${it.id}|${it.targetNationId}|${it.targetNationName}|${it.type.name}|${it.successChance}|${it.turnsRemaining}|${it.costPerTurn}" }
+    }
+
+    private fun deserializeSpyMissions(data: String): List<SpyMission> {
+        if (data.isBlank()) return emptyList()
+        return data.split(";").mapNotNull { entry ->
+            try {
+                val parts = entry.split("|")
+                SpyMission(parts[0], parts[1], parts[2], SpyMissionType.valueOf(parts[3]), parts[4].toInt(), parts[5].toInt(), parts[6].toInt())
+            } catch (e: Exception) { null }
         }
     }
 }

@@ -433,6 +433,67 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun launchSpyMission(targetNationId: String, missionType: com.countrysimulator.game.domain.SpyMissionType) {
+        updateCountry { country ->
+            if (country.treasury < missionType.cost) country
+            else {
+                val targetName = _uiState.value.gameState?.aiNations?.find { it.id == targetNationId }?.name ?: "Unknown"
+                val newMission = com.countrysimulator.game.domain.SpyMission(
+                    id = "spy_${System.currentTimeMillis()}",
+                    targetNationId = targetNationId,
+                    targetNationName = targetName,
+                    type = missionType,
+                    successChance = (40..80).random(), // Simplified calculation
+                    turnsRemaining = missionType.duration,
+                    costPerTurn = 50
+                )
+                country.copy(
+                    activeSpyMissions = country.activeSpyMissions + newMission,
+                    treasury = country.treasury - missionType.cost
+                )
+            }
+        }
+    }
+
+    fun imposeSanctions(targetNationId: String, sanctionType: com.countrysimulator.game.domain.SanctionType) {
+        updateCountry { country ->
+            if (country.treasury < 500) country
+            else {
+                val newRelations = country.diplomaticRelations.map { rel ->
+                    if (rel.nationId == targetNationId && !rel.sanctions.contains(sanctionType)) {
+                        rel.copy(
+                            sanctions = rel.sanctions + sanctionType,
+                            relationScore = (rel.relationScore - 30).coerceAtLeast(0),
+                            status = if (rel.relationScore - 30 < 20) com.countrysimulator.game.domain.RelationStatus.ENEMY else rel.status
+                        )
+                    } else rel
+                }
+                country.copy(diplomaticRelations = newRelations, treasury = country.treasury - 500)
+            }
+        }
+    }
+
+    fun sendForeignAid(targetNationId: String) {
+        updateCountry { country ->
+            if (country.treasury < 2000) country
+            else {
+                val newRelations = country.diplomaticRelations.map { rel ->
+                    if (rel.nationId == targetNationId) {
+                        rel.copy(
+                            relationScore = (rel.relationScore + 15).coerceAtMost(100),
+                            status = if (rel.relationScore + 15 > 80) com.countrysimulator.game.domain.RelationStatus.FRIENDLY else rel.status
+                        )
+                    } else rel
+                }
+                country.copy(
+                    diplomaticRelations = newRelations,
+                    treasury = country.treasury - 2000,
+                    stats = country.stats.copy(softPower = (country.stats.softPower + 5).coerceAtMost(100))
+                )
+            }
+        }
+    }
+
     fun getGameOverMessage(reason: GameOverReason): String {
         return when (reason) {
             GameOverReason.BANKRUPTCY -> "Your country has gone bankrupt! The government has collapsed due to unsustainable debt."

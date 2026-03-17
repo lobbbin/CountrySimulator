@@ -7,11 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,6 +71,12 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 onClick = { currentScreen = Screen.POLITICS }
                             )
                             NavigationBarItem(
+                                icon = { Icon(Icons.Default.Search, "Intel") },
+                                label = { Text("Intel") },
+                                selected = currentScreen == Screen.INTEL,
+                                onClick = { currentScreen = Screen.INTEL }
+                            )
+                            NavigationBarItem(
                                 icon = { Icon(Icons.Default.List, "World") },
                                 label = { Text("World") },
                                 selected = currentScreen == Screen.WORLD,
@@ -82,9 +84,9 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                             )
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.Info, "Market") },
-                                label = { Text("Market") },
-                                selected = currentScreen == Screen.MARKET,
-                                onClick = { currentScreen = Screen.MARKET }
+                                label = { Text("UN") },
+                                selected = currentScreen == Screen.UN,
+                                onClick = { currentScreen = Screen.UN }
                             )
                         }
                     }
@@ -102,16 +104,17 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 gameState = gameState,
                                 viewModel = viewModel
                             )
+                            Screen.INTEL -> IntelScreen(
+                                gameState = gameState,
+                                viewModel = viewModel
+                            )
                             Screen.WORLD -> WorldScreen(
                                 gameState = gameState,
-                                onDiplomacyAction = { action, id ->
-                                    when (action) {
-                                        DiplomacyAction.IMPROVE -> viewModel.improveRelations(id)
-                                        DiplomacyAction.TRADE -> viewModel.offerTrade(id)
-                                        DiplomacyAction.ALLIANCE -> viewModel.formAlliance(id)
-                                        DiplomacyAction.WAR -> viewModel.declareWar(id)
-                                    }
-                                }
+                                viewModel = viewModel
+                            )
+                            Screen.UN -> UnitedNationsScreen(
+                                gameState = gameState,
+                                viewModel = viewModel
                             )
                             Screen.MARKET -> MarketScreen(gameState = gameState)
                         }
@@ -129,8 +132,8 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     }
 }
 
-enum class Screen { DASHBOARD, POLITICS, WORLD, MARKET }
-enum class DiplomacyAction { IMPROVE, TRADE, ALLIANCE, WAR }
+enum class Screen { DASHBOARD, POLITICS, INTEL, WORLD, UN, MARKET }
+enum class DiplomacyAction { IMPROVE, TRADE, ALLIANCE, WAR, AID, SANCTION }
 
 @Composable
 fun DashboardScreen(
@@ -191,9 +194,8 @@ fun DashboardScreen(
         StatBar("Economy", country.stats.economy, 100, 0xFFFFD700.toInt())
         StatBar("Military", country.stats.military, 100, 0xFFF44336.toInt())
         StatBar("Stability", country.stats.stability, 100, 0xFF9C27B0.toInt())
-        StatBar("Tech", country.stats.technology, 100, 0xFF00BCD4.toInt())
+        StatBar("Soft Power", country.stats.softPower, 100, 0xFF009688.toInt())
         StatBar("Corruption", country.stats.corruption, 100, Color.Red.hashCode())
-        StatBar("Propaganda", country.stats.propaganda, 100, Color.Cyan.hashCode())
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -227,6 +229,207 @@ fun DashboardScreen(
         ) {
             Text("NEXT TURN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+@Composable
+fun IntelScreen(gameState: GameState, viewModel: GameViewModel) {
+    val country = gameState.country
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        item {
+            Text("Intelligence Agency", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("Conduct covert operations and gather intel.", fontSize = 14.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Active Missions", fontWeight = FontWeight.Bold)
+            if (country.activeSpyMissions.isEmpty()) {
+                Text("No active missions.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
+            }
+            country.activeSpyMissions.forEach { mission ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(mission.type.displayName, fontWeight = FontWeight.Bold)
+                            Text("Turns: ${mission.turnsRemaining}", fontSize = 12.sp)
+                        }
+                        Text("Target: ${mission.targetNationName}", fontSize = 12.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(progress = { (mission.type.duration - mission.turnsRemaining) / mission.type.duration.toFloat() }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Launch New Mission", fontWeight = FontWeight.Bold)
+            gameState.aiNations.filter { it.isAlive }.forEach { ai ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(ai.name, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SpyMissionType.values().forEach { type ->
+                                ActionButtonSmall(type.displayName, { viewModel.launchSpyMission(ai.id, type) }, country.treasury >= type.cost, Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UnitedNationsScreen(gameState: GameState, viewModel: GameViewModel) {
+    val un = gameState.country.unitedNations
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        item {
+            Text("United Nations", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("International body for global cooperation.", fontSize = 14.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("UN Status", fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Member States: ${un.memberCount}")
+                Text("Your Status: Member", color = Color.Green)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Passed Resolutions", fontWeight = FontWeight.Bold)
+            if (un.passedResolutions.isEmpty()) {
+                Text("No passed resolutions.", fontSize = 12.sp, color = Color.Gray)
+            }
+            un.passedResolutions.forEach { res ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(res.type.name, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(res.description, fontSize = 12.sp)
+                        Text("Passed in Year ${res.yearProposed}", fontSize = 10.sp, color = Color.Gray)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WorldScreen(gameState: GameState, viewModel: GameViewModel) {
+    val relations = gameState.country.diplomaticRelations
+    val aiNations = gameState.aiNations
+
+    LazyColumn(modifier = Modifier.padding(16.dp)) {
+        item {
+            Text("Global Powers", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        items(relations) { relation ->
+            val aiNation = aiNations.find { it.id == relation.nationId }
+            if (aiNation != null && aiNation.isAlive) {
+                AiNationCard(aiNation, relation, { action, id ->
+                    when (action) {
+                        DiplomacyAction.IMPROVE -> viewModel.improveRelations(id)
+                        DiplomacyAction.TRADE -> viewModel.offerTrade(id)
+                        DiplomacyAction.ALLIANCE -> viewModel.formAlliance(id)
+                        DiplomacyAction.WAR -> viewModel.declareWar(id)
+                        DiplomacyAction.AID -> viewModel.sendForeignAid(id)
+                        DiplomacyAction.SANCTION -> viewModel.imposeSanctions(id, SanctionType.TRADE_EMBARGO)
+                    }
+                })
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun AiNationCard(aiNation: AiNation, relation: DiplomaticRelation, onAction: (DiplomacyAction, String) -> Unit) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    Card(
+        onClick = { showDialog = true },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(aiNation.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(aiNation.governmentType.displayName, fontSize = 12.sp, color = Color.Gray)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text("Personality: ${aiNation.personality.name}", fontSize = 12.sp)
+                Text(
+                    text = "Relation: ${relation.relationScore} (${relation.status})",
+                    color = if (relation.status == RelationStatus.ENEMY) Color.Red else if (relation.status == RelationStatus.ALLY) Color.Green else Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+            if (relation.sanctions.isNotEmpty()) {
+                Text("Sanctions: ${relation.sanctions.size} active", color = Color.Yellow, fontSize = 10.sp)
+            }
+            if (relation.isAtWar) {
+                Text("⚠ AT WAR ⚠", color = Color.Red, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+            }
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Diplomacy: ${aiNation.name}") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text("Government: ${aiNation.governmentType.displayName}")
+                    Text("Economy: ${aiNation.stats.economy} | Military: ${aiNation.stats.military}")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    if (!relation.isAtWar) {
+                        Button(onClick = { onAction(DiplomacyAction.IMPROVE, aiNation.id); showDialog = false }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Improve Relations ($500)")
+                        }
+                        Button(onClick = { onAction(DiplomacyAction.AID, aiNation.id); showDialog = false }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))) {
+                            Text("Send Foreign Aid ($2000)")
+                        }
+                        Button(
+                            onClick = { onAction(DiplomacyAction.TRADE, aiNation.id); showDialog = false },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = relation.relationScore >= 40 && !relation.hasTradeAgreement
+                        ) {
+                            Text(if (relation.hasTradeAgreement) "Trade Active" else "Offer Trade Agreement (Req: 40)")
+                        }
+                        Button(
+                            onClick = { onAction(DiplomacyAction.ALLIANCE, aiNation.id); showDialog = false },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = relation.relationScore >= 80 && !relation.hasAlliance
+                        ) {
+                            Text(if (relation.hasAlliance) "Alliance Active" else "Form Alliance (Req: 80)")
+                        }
+                        Button(onClick = { onAction(DiplomacyAction.SANCTION, aiNation.id); showDialog = false }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.Yellow, contentColor = Color.Black)) {
+                            Text("Impose Sanctions ($500)")
+                        }
+                        Button(
+                            onClick = { onAction(DiplomacyAction.WAR, aiNation.id); showDialog = false },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("DECLARE WAR")
+                        }
+                    } else {
+                         Text("You are at war with this nation!", color = Color.Red, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showDialog = false }) { Text("Close") } }
+        )
     }
 }
 
@@ -330,103 +533,6 @@ fun PoliticsScreen(gameState: GameState, viewModel: GameViewModel) {
 }
 
 @Composable
-fun WorldScreen(gameState: GameState, onDiplomacyAction: (DiplomacyAction, String) -> Unit) {
-    val relations = gameState.country.diplomaticRelations
-    val aiNations = gameState.aiNations
-
-    LazyColumn(modifier = Modifier.padding(16.dp)) {
-        item {
-            Text("Global Powers", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        items(relations) { relation ->
-            val aiNation = aiNations.find { it.id == relation.nationId }
-            if (aiNation != null && aiNation.isAlive) {
-                AiNationCard(aiNation, relation, onDiplomacyAction)
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-        }
-    }
-}
-
-@Composable
-fun AiNationCard(aiNation: AiNation, relation: DiplomaticRelation, onAction: (DiplomacyAction, String) -> Unit) {
-    var showDialog by remember { mutableStateOf(false) }
-
-    Card(
-        onClick = { showDialog = true },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(12.dp).fillMaxWidth()) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(aiNation.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(aiNation.governmentType.displayName, fontSize = 12.sp, color = Color.Gray)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text("Personality: ${aiNation.personality.name}", fontSize = 12.sp)
-                Text(
-                    text = "Relation: ${relation.relationScore} (${relation.status})",
-                    color = if (relation.status == RelationStatus.ENEMY) Color.Red else if (relation.status == RelationStatus.ALLY) Color.Green else Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
-            }
-            if (relation.isAtWar) {
-                Text("⚠ AT WAR ⚠", color = Color.Red, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-            }
-        }
-    }
-
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Diplomacy: ${aiNation.name}") },
-            text = {
-                Column {
-                    Text("Government: ${aiNation.governmentType.displayName}")
-                    Text("Economy: ${aiNation.stats.economy} | Military: ${aiNation.stats.military}")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    if (!relation.isAtWar) {
-                        Button(onClick = { onAction(DiplomacyAction.IMPROVE, aiNation.id); showDialog = false }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Improve Relations ($500)")
-                        }
-                        Button(
-                            onClick = { onAction(DiplomacyAction.TRADE, aiNation.id); showDialog = false },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = relation.relationScore >= 40 && !relation.hasTradeAgreement
-                        ) {
-                            Text(if (relation.hasTradeAgreement) "Trade Active" else "Offer Trade Agreement (Req: 40)")
-                        }
-                        Button(
-                            onClick = { onAction(DiplomacyAction.ALLIANCE, aiNation.id); showDialog = false },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = relation.relationScore >= 80 && !relation.hasAlliance
-                        ) {
-                            Text(if (relation.hasAlliance) "Alliance Active" else "Form Alliance (Req: 80)")
-                        }
-                        Button(
-                            onClick = { onAction(DiplomacyAction.WAR, aiNation.id); showDialog = false },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                        ) {
-                            Text("DECLARE WAR")
-                        }
-                    } else {
-                         Text("You are at war with this nation!", color = Color.Red, fontWeight = FontWeight.Bold)
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showDialog = false }) { Text("Close") } }
-        )
-    }
-}
-
-@Composable
 fun MarketScreen(gameState: GameState) {
     Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
         Text("Global Market", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -471,8 +577,8 @@ fun NewGameDialog(onStartGame: (String, GovernmentType) -> Unit) {
     var selectedGovType by remember { mutableStateOf(GovernmentType.DEMOCRACY) }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Country Simulator 5.0", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text("Government & Politics Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
+        Text("Country Simulator 6.0", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text("Diplomacy & International Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedTextField(value = countryName, onValueChange = { countryName = it }, label = { Text("Country Name") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))
