@@ -71,10 +71,10 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 onClick = { currentScreen = Screen.POLITICS }
                             )
                             NavigationBarItem(
-                                icon = { Icon(Icons.Default.Search, "Intel") },
-                                label = { Text("Intel") },
-                                selected = currentScreen == Screen.INTEL,
-                                onClick = { currentScreen = Screen.INTEL }
+                                icon = { Icon(Icons.Default.Star, "Military") },
+                                label = { Text("Military") },
+                                selected = currentScreen == Screen.MILITARY,
+                                onClick = { currentScreen = Screen.MILITARY }
                             )
                             NavigationBarItem(
                                 icon = { Icon(Icons.Default.List, "World") },
@@ -83,10 +83,10 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 onClick = { currentScreen = Screen.WORLD }
                             )
                             NavigationBarItem(
-                                icon = { Icon(Icons.Default.Info, "Market") },
-                                label = { Text("UN") },
-                                selected = currentScreen == Screen.UN,
-                                onClick = { currentScreen = Screen.UN }
+                                icon = { Icon(Icons.Default.MoreVert, "More") },
+                                label = { Text("More") },
+                                selected = currentScreen == Screen.INTEL || currentScreen == Screen.UN || currentScreen == Screen.MARKET,
+                                onClick = { currentScreen = Screen.INTEL } // Default to Intel in sub-menu
                             )
                         }
                     }
@@ -101,6 +101,10 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 viewModel = viewModel
                             )
                             Screen.POLITICS -> PoliticsScreen(
+                                gameState = gameState,
+                                viewModel = viewModel
+                            )
+                            Screen.MILITARY -> MilitaryScreen(
                                 gameState = gameState,
                                 viewModel = viewModel
                             )
@@ -119,6 +123,19 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                             Screen.MARKET -> MarketScreen(gameState = gameState)
                         }
 
+                        // Floating Sub-menu for More
+                        if (currentScreen == Screen.INTEL || currentScreen == Screen.UN || currentScreen == Screen.MARKET) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
+                                Card(modifier = Modifier.padding(8.dp)) {
+                                    Row {
+                                        TextButton(onClick = { currentScreen = Screen.INTEL }) { Text("Intel") }
+                                        TextButton(onClick = { currentScreen = Screen.UN }) { Text("UN") }
+                                        TextButton(onClick = { currentScreen = Screen.MARKET }) { Text("Market") }
+                                    }
+                                }
+                            }
+                        }
+
                         if (uiState.showEventDialog && uiState.currentEvent != null) {
                             EventDialog(
                                 event = uiState.currentEvent!!,
@@ -132,7 +149,7 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     }
 }
 
-enum class Screen { DASHBOARD, POLITICS, INTEL, WORLD, UN, MARKET }
+enum class Screen { DASHBOARD, POLITICS, MILITARY, INTEL, WORLD, UN, MARKET }
 enum class DiplomacyAction { IMPROVE, TRADE, ALLIANCE, WAR, AID, SANCTION }
 
 @Composable
@@ -195,7 +212,6 @@ fun DashboardScreen(
         StatBar("Military", country.stats.military, 100, 0xFFF44336.toInt())
         StatBar("Stability", country.stats.stability, 100, 0xFF9C27B0.toInt())
         StatBar("Soft Power", country.stats.softPower, 100, 0xFF009688.toInt())
-        StatBar("Corruption", country.stats.corruption, 100, Color.Red.hashCode())
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -213,10 +229,10 @@ fun DashboardScreen(
         Text("Quick Actions", fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButtonSmall("Invest Econ ($1K)", { viewModel.investInEconomy() }, country.treasury >= 1000, Modifier.weight(1f))
-            ActionButtonSmall("Recruit Mil ($800)", { viewModel.recruitMilitary() }, country.treasury >= 800, Modifier.weight(1f))
+            ActionButtonSmall("Upgrade Infra ($1.2K)", { viewModel.improveInfrastructure() }, country.treasury >= 1200, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButtonSmall("Improve Infra ($1.2K)", { viewModel.improveInfrastructure() }, country.treasury >= 1200, Modifier.weight(1f))
+            ActionButtonSmall("Happiness ($800)", { viewModel.improveHappiness() }, country.treasury >= 800, Modifier.weight(1f))
             ActionButtonSmall("Propaganda ($1K)", { viewModel.runPropaganda() }, country.treasury >= 1000, Modifier.weight(1f))
         }
         
@@ -228,6 +244,128 @@ fun DashboardScreen(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             Text("NEXT TURN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun MilitaryScreen(gameState: GameState, viewModel: GameViewModel) {
+    val military = gameState.country.military
+    val treasury = gameState.country.treasury
+    
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        item {
+            Text("Military Command", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+            Text("Military Doctrine: ${military.doctrine.displayName}", fontSize = 14.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Doctrine Selection
+        item {
+            Text("Select Military Doctrine", fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MilitaryDoctrine.values().forEach { doctrine ->
+                    ActionButtonSmall(doctrine.displayName, { viewModel.changeDoctrine(doctrine) }, treasury >= 1000 && military.doctrine != doctrine, Modifier.weight(1f))
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Branches
+        item {
+            Text("Military Branches", fontWeight = FontWeight.Bold)
+            MilitaryBranchCard("Army", military.army, { viewModel.recruitTroops("Army") }, { viewModel.upgradeEquipment("Army") }, treasury)
+            MilitaryBranchCard("Navy", military.navy, { viewModel.recruitTroops("Navy") }, { viewModel.upgradeEquipment("Navy") }, treasury)
+            MilitaryBranchCard("Air Force", military.airForce, { viewModel.recruitTroops("Air Force") }, { viewModel.upgradeEquipment("Air Force") }, treasury)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Nuclear Program
+        item {
+            Text("Strategic Weapons", fontWeight = FontWeight.Bold)
+            Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Nuclear Program", fontWeight = FontWeight.Bold)
+                        if (military.nuclearProgram.hasProgram) {
+                            Text("Warheads: ${military.nuclearProgram.warheads}", color = Color.Red, fontWeight = FontWeight.Bold)
+                        } else {
+                            Text("Inactive", color = Color.Gray)
+                        }
+                    }
+                    if (!military.nuclearProgram.hasProgram) {
+                        Button(onClick = { viewModel.startNuclearProgram() }, enabled = treasury >= 10000, modifier = Modifier.fillMaxWidth()) {
+                            Text("Start Program ($10,000)")
+                        }
+                    } else {
+                        Text("Research Progress: ${military.nuclearProgram.researchProgress}%", fontSize = 12.sp)
+                        LinearProgressIndicator(progress = { military.nuclearProgram.researchProgress / 100f }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Mercenaries
+        item {
+            Text("Private Military Contractors", fontWeight = FontWeight.Bold)
+            if (military.mercenaries.isEmpty()) {
+                Text("No mercenaries hired.", fontSize = 12.sp, color = Color.Gray)
+            }
+            military.mercenaries.forEach { merc ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(merc.name)
+                        Text("Power: ${merc.power}", fontWeight = FontWeight.Bold)
+                        Text("Turns: ${merc.contractTurnsRemaining}", fontSize = 12.sp)
+                    }
+                }
+            }
+            Button(onClick = { viewModel.hireMercenaries() }, enabled = treasury >= 1500, modifier = Modifier.fillMaxWidth()) {
+                Text("Hire Mercenaries ($1500)")
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // War Theaters
+        item {
+            Text("Active War Theaters", fontWeight = FontWeight.Bold)
+            if (military.warTheaters.isEmpty()) {
+                Text("Nation is at peace.", fontSize = 12.sp, color = Color.Gray)
+            }
+            military.warTheaters.forEach { theater ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), colors = CardDefaults.cardColors(containerColor = if (theater.territoryControlled < 30) Color(0x33FF0000) else MaterialTheme.colorScheme.surfaceVariant)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(theater.name, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text("Territory Controlled: ${theater.territoryControlled}%", fontSize = 12.sp)
+                        }
+                        LinearProgressIndicator(progress = { theater.territoryControlled / 100f }, modifier = Modifier.fillMaxWidth(), color = if (theater.territoryControlled > 50) Color.Green else Color.Red)
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text("Your Strength: ${theater.playerStrength}", fontSize = 10.sp)
+                            Text("Enemy Strength: ${theater.enemyStrength}", fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MilitaryBranchCard(name: String, branch: MilitaryBranch, onRecruit: () -> Unit, onUpgrade: () -> Unit, treasury: Int) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(name, fontWeight = FontWeight.Bold)
+                Text("Lvl ${branch.equipmentLevel}", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            }
+            Text("Manpower: ${formatNumber(branch.manpower)}", fontSize = 12.sp)
+            Text("Experience: ${branch.experience}%", fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButtonSmall("Recruit ($500)", onRecruit, treasury >= 500, Modifier.weight(1f))
+                ActionButtonSmall("Upgrade ($2K)", onUpgrade, treasury >= 2000, Modifier.weight(1f))
+            }
         }
     }
 }
@@ -578,7 +716,7 @@ fun NewGameDialog(onStartGame: (String, GovernmentType) -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Country Simulator 6.0", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text("Diplomacy & International Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
+        Text("Military & International Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedTextField(value = countryName, onValueChange = { countryName = it }, label = { Text("Country Name") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))

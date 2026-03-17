@@ -494,6 +494,79 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Military & Warfare V6.0 ---
+
+    fun recruitTroops(branchName: String) {
+        updateCountry { country ->
+            val cost = 500
+            if (country.treasury < cost) country
+            else {
+                val newMilitary = country.military.copy(
+                    army = if (branchName == "Army") country.military.army.copy(manpower = country.military.army.manpower + 1000) else country.military.army,
+                    navy = if (branchName == "Navy") country.military.navy.copy(manpower = country.military.navy.manpower + 500) else country.military.navy,
+                    airForce = if (branchName == "Air Force") country.military.airForce.copy(manpower = country.military.airForce.manpower + 200) else country.military.airForce
+                )
+                country.copy(military = newMilitary, treasury = country.treasury - cost)
+            }
+        }
+    }
+
+    fun upgradeEquipment(branchName: String) {
+        updateCountry { country ->
+            val cost = 2000
+            if (country.treasury < cost) country
+            else {
+                val newMilitary = country.military.copy(
+                    army = if (branchName == "Army") country.military.army.copy(equipmentLevel = (country.military.army.equipmentLevel + 1).coerceAtMost(10)) else country.military.army,
+                    navy = if (branchName == "Navy") country.military.navy.copy(equipmentLevel = (country.military.navy.equipmentLevel + 1).coerceAtMost(10)) else country.military.navy,
+                    airForce = if (branchName == "Air Force") country.military.airForce.copy(equipmentLevel = (country.military.airForce.equipmentLevel + 1).coerceAtMost(10)) else country.military.airForce
+                )
+                country.copy(military = newMilitary, treasury = country.treasury - cost)
+            }
+        }
+    }
+
+    fun startNuclearProgram() {
+        updateCountry { country ->
+            if (country.treasury < 10000 || country.military.nuclearProgram.hasProgram) country
+            else {
+                val newMilitary = country.military.copy(
+                    nuclearProgram = country.military.nuclearProgram.copy(hasProgram = true)
+                )
+                country.copy(military = newMilitary, treasury = country.treasury - 10000)
+            }
+        }
+    }
+
+    fun hireMercenaries() {
+        updateCountry { country ->
+            val cost = 1500
+            if (country.treasury < cost) country
+            else {
+                val mercGroup = com.countrysimulator.game.domain.MercenaryGroup(
+                    name = "Mercenary Company ${System.currentTimeMillis() % 100}",
+                    power = (10..20).random(),
+                    costPerTurn = 200,
+                    contractTurnsRemaining = 10
+                )
+                val newMilitary = country.military.copy(
+                    mercenaries = country.military.mercenaries + mercGroup
+                )
+                country.copy(military = newMilitary, treasury = country.treasury - cost)
+            }
+        }
+    }
+
+    fun changeDoctrine(doctrine: com.countrysimulator.game.domain.MilitaryDoctrine) {
+        updateCountry { country ->
+            if (country.treasury < 1000) country
+            else {
+                val newMilitary = country.military.copy(doctrine = doctrine)
+                country.copy(military = newMilitary, treasury = country.treasury - 1000)
+            }
+        }
+    }
+
     fun getGameOverMessage(reason: GameOverReason): String {
         return when (reason) {
             GameOverReason.BANKRUPTCY -> "Your country has gone bankrupt! The government has collapsed due to unsustainable debt."

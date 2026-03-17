@@ -676,6 +676,31 @@ object GameLogic {
 
         // --- New V6.0 Logic ---
         
+        // Military & Warfare Processing
+        var newMilitary = country.military
+        
+        // 1. Calculate Military Power from Branches
+        val calculatedPower = calculateMilitaryPower(newMilitary)
+        newStats = newStats.copy(military = calculatedPower.coerceIn(0, 100))
+        
+        // 2. Process Nuclear Program
+        val nukeResult = processNuclearProgram(newMilitary.nuclearProgram)
+        newMilitary = newMilitary.copy(nuclearProgram = nukeResult.first)
+        if (nukeResult.second) { // New warhead built
+             newStats = newStats.copy(softPower = (newStats.softPower - 5).coerceAtLeast(0)) // International concern
+        }
+        
+        // 3. Process Mercenaries
+        val activeMercs = newMilitary.mercenaries.map { it.copy(contractTurnsRemaining = it.contractTurnsRemaining - 1) }.filter { it.contractTurnsRemaining > 0 }
+        val mercCost = activeMercs.sumOf { it.costPerTurn }
+        newTreasury -= mercCost
+        newMilitary = newMilitary.copy(mercenaries = activeMercs)
+        
+        // 4. Process War Theaters
+        val theaterResult = processWarTheaters(newMilitary.warTheaters, newStats.military, currentState.aiNations)
+        newMilitary = newMilitary.copy(warTheaters = theaterResult.first)
+        val theaterEvents = theaterResult.second
+        
         // Sanctions Effect
         val sanctionsPenalty = country.diplomaticRelations.sumOf { rel -> rel.sanctions.size * 5 } // 5% economy penalty per sanction type per nation
         if (sanctionsPenalty > 0) {
@@ -742,8 +767,8 @@ object GameLogic {
             energyPrice = (currentState.globalMarket.energyPrice + (-1..1).random()).coerceIn(5, 50)
         )
 
-        // 5. Random Events (including new Political ones)
-        val allEvents = events + politicalEvents + diplomaticEvents
+        // 5. Random Events (including new Political & Military ones)
+        val allEvents = events + politicalEvents + diplomaticEvents + militaryEvents
         val eventRoll = (1..100).random()
         val eventThreshold = 100 - newStats.stability + 20
         val event = if (eventRoll <= eventThreshold && allEvents.isNotEmpty()) {
@@ -772,7 +797,7 @@ object GameLogic {
             corruption = (newStats.corruption + (1..3).random()).coerceAtMost(100) // Natural corruption growth
         )
 
-        // Check for Assassination or Coup
+        // Check for Assassination, Coup, or Nuclear Winter
         var gameOverReason = checkGameOver(country.copy(stats = newStats, factions = newFactions))
         
         if (gameOverReason == null) {
@@ -793,7 +818,8 @@ object GameLogic {
             politicalParties = newParties,
             currentTermYear = country.currentTermYear + 1,
             unitedNations = un,
-            activeSpyMissions = spyMissions
+            activeSpyMissions = spyMissions,
+            military = newMilitary
         )
 
         // Auto-trigger election every 4 years in Democracy
@@ -810,6 +836,7 @@ object GameLogic {
             newEventHistory.add("Year ${finalCountry.year}: ${it.title}")
         }
         spyEvents.forEach { newEventHistory.add("Year ${finalCountry.year}: $it") }
+        theaterEvents.forEach { newEventHistory.add("Year ${finalCountry.year}: $it") }
         processedResolutions.forEach { 
             if (it.status == ResolutionStatus.PASSED) newEventHistory.add("UN: ${it.description} PASSED")
             else newEventHistory.add("UN: ${it.description} FAILED")
@@ -824,66 +851,76 @@ object GameLogic {
             gameOverReason = gameOverReason,
             lastEvent = event,
             eventHistory = newEventHistory,
-            newsHeadline = event?.title ?: spyEvents.firstOrNull() // Simplified headline
+            newsHeadline = event?.title ?: theaterEvents.firstOrNull() ?: spyEvents.firstOrNull() // Simplified headline
         )
     }
 
-    private fun generateRandomResolution(year: Int, aiNations: List<AiNation>): UNResolution {
-        val type = UNResolutionType.values().random()
-        val target = if (type == UNResolutionType.CONDEMNATION || type == UNResolutionType.SANCTIONS) {
-            aiNations.randomOrNull()?.id
-        } else null
+    private fun calculateMilitaryPower(military: Military): Int {
+        val branchPower = (military.army.manpower + military.navy.manpower + military.airForce.manpower) / 300 // Scale down
+        val equipBonus = (military.army.equipmentLevel + military.navy.equipmentLevel + military.airForce.equipmentLevel) * 2
+        val expBonus = (military.army.experience + military.navy.experience + military.airForce.experience) / 10
+        val mercPower = military.mercenaries.sumOf { it.power }
+        val nukePower = military.nuclearProgram.warheads * 10
         
-        val desc = when(type) {
-            UNResolutionType.CONDEMNATION -> "Condemn human rights violations in a member state."
-            UNResolutionType.SANCTIONS -> "Impose economic sanctions on aggressive nation."
-            UNResolutionType.PEACEKEEPING_MISSION -> "Deploy peacekeepers to conflict zone."
-            UNResolutionType.HUMANITARIAN_AID -> "Send emergency aid to famine-struck region."
-            UNResolutionType.GLOBAL_INITIATIVE -> "Global agreement on climate change goals."
-        }
-
-        return UNResolution(
-            id = "res_${System.currentTimeMillis()}",
-            type = type,
-            targetNationId = target,
-            description = desc,
-            yearProposed = year
-        )
+        return (branchPower + equipBonus + expBonus + mercPower + nukePower).coerceIn(0, 100)
     }
 
-    private val diplomaticEvents = listOf(
+    private fun processNuclearProgram(program: NuclearProgram): Pair<NuclearProgram, Boolean> {
+        if (!program.hasProgram) return Pair(program, false)
+        
+        var newProgress = program.researchProgress + 5 // Base growth
+        var builtNew = false
+        var newWarheads = program.warheads
+        
+        if (newProgress >= 100) {
+            newProgress = 0
+            newWarheads += 1
+            builtNew = true
+        }
+        
+        return Pair(program.copy(researchProgress = newProgress, warheads = newWarheads), builtNew)
+    }
+
+    private fun processWarTheaters(theaters: List<WarTheater>, playerPower: Int, aiNations: List<AiNation>): Pair<List<WarTheater>, List<String>> {
+        val events = mutableListOf<String>()
+        val newTheaters = theaters.map { theater ->
+            if (!theater.isActive) return@map theater
+            
+            val enemy = aiNations.find { it.id == theater.enemyNationId }
+            val enemyPower = enemy?.stats?.military ?: 50
+            
+            // Random flux
+            val battleRoll = (1..100).random() + (playerPower - enemyPower)
+            var territoryChange = 0
+            
+            if (battleRoll > 60) territoryChange = 5
+            else if (battleRoll < 40) territoryChange = -5
+            
+            val newTerritory = (theater.territoryControlled + territoryChange).coerceIn(0, 100)
+            
+            if (territoryChange > 0) events.add("War in ${theater.name}: You gained ground!")
+            else if (territoryChange < 0) events.add("War in ${theater.name}: Enemy pushed back!")
+            
+            theater.copy(territoryControlled = newTerritory, playerStrength = playerPower, enemyStrength = enemyPower)
+        }
+        
+        return Pair(newTheaters, events)
+    }
+
+    private val militaryEvents = listOf(
         GameEvent(
-            id = "refugee_crisis",
-            title = "Refugee Crisis",
-            description = "Thousands of refugees are arriving from a war-torn neighbor.",
-            category = EventCategory.DIPLOMATIC,
-            severity = EventSeverity.MAJOR,
-            effect = { stats -> stats.copy(population = (stats.population + 50000).coerceAtMost(100000000), stability = (stats.stability - 10).coerceAtLeast(0)) },
-            options = listOf(
-                EventOption("Accept Refugees", "Humanitarian duty") { stats, treasury, resources ->
-                    Triple(stats.copy(softPower = (stats.softPower + 15).coerceAtMost(100), economy = (stats.economy - 5).coerceAtLeast(0)), treasury - 2000, resources.copy(food = (resources.food - 50).coerceAtLeast(0)))
-                },
-                EventOption("Close Borders", "Security first") { stats, treasury, resources ->
-                    Triple(stats.copy(softPower = (stats.softPower - 15).coerceAtLeast(0), stability = stats.stability + 5), treasury - 500, resources)
-                }
-            )
-        ),
-        GameEvent(
-            id = "border_dispute",
-            title = "Border Dispute",
-            description = "A neighbor claims part of your territory as their own.",
-            category = EventCategory.DIPLOMATIC,
+            id = "arms_race",
+            title = "Arms Race",
+            description = "Tensions are rising. Neighbors are arming themselves.",
+            category = EventCategory.MILITARY,
             severity = EventSeverity.MODERATE,
-            effect = { stats -> stats.copy(stability = (stats.stability - 5).coerceAtLeast(0)) },
+            effect = { stats -> stats.copy(military = (stats.military - 5).coerceAtLeast(0), stability = (stats.stability - 5).coerceAtLeast(0)) }, // Relative power drops
             options = listOf(
-                EventOption("Military Show of Force", "Deploy troops") { stats, treasury, resources ->
-                    Triple(stats.copy(military = stats.military + 5, stability = stats.stability + 5, softPower = (stats.softPower - 5).coerceAtLeast(0)), treasury - 1000, resources)
+                EventOption("Increase Spending", "Match them") { stats, treasury, resources ->
+                    Triple(stats.copy(military = stats.military + 10), treasury - 2000, resources)
                 },
-                EventOption("International Court", "Legal battle") { stats, treasury, resources ->
-                    Triple(stats.copy(softPower = stats.softPower + 5), treasury - 2000, resources)
-                },
-                EventOption("Cede Territory", "Avoid conflict") { stats, treasury, resources ->
-                    Triple(stats.copy(stability = stats.stability - 15, happiness = stats.happiness - 10), treasury, resources)
+                EventOption("Diplomatic Solution", "De-escalate") { stats, treasury, resources ->
+                    Triple(stats.copy(softPower = stats.softPower + 5, stability = stats.stability + 5), treasury - 500, resources)
                 }
             )
         )

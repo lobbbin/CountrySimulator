@@ -11,7 +11,7 @@ import com.countrysimulator.game.domain.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v6")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v6_mil")
 
 class GameRepository(private val context: Context) {
 
@@ -20,7 +20,7 @@ class GameRepository(private val context: Context) {
         val GOVERNMENT_TYPE = stringPreferencesKey("government_type")
         val POPULATION = intPreferencesKey("population")
         val ECONOMY = intPreferencesKey("economy")
-        val MILITARY = intPreferencesKey("military")
+        val MILITARY_POWER = intPreferencesKey("military_power")
         val HAPPINESS = intPreferencesKey("happiness")
         val STABILITY = intPreferencesKey("stability")
         val TECHNOLOGY = intPreferencesKey("technology")
@@ -48,6 +48,9 @@ class GameRepository(private val context: Context) {
         val ELECTION = stringPreferencesKey("election")
         val UN_RESOLUTIONS = stringPreferencesKey("un_resolutions")
         val SPY_MISSIONS = stringPreferencesKey("spy_missions")
+        
+        // Military V6.0
+        val MILITARY_DATA = stringPreferencesKey("military_data")
     }
 
     suspend fun saveGame(gameState: GameState) {
@@ -57,7 +60,7 @@ class GameRepository(private val context: Context) {
             preferences[PreferencesKeys.GOVERNMENT_TYPE] = country.governmentType.name
             preferences[PreferencesKeys.POPULATION] = country.stats.population
             preferences[PreferencesKeys.ECONOMY] = country.stats.economy
-            preferences[PreferencesKeys.MILITARY] = country.stats.military
+            preferences[PreferencesKeys.MILITARY_POWER] = country.stats.military
             preferences[PreferencesKeys.HAPPINESS] = country.stats.happiness
             preferences[PreferencesKeys.STABILITY] = country.stats.stability
             preferences[PreferencesKeys.TECHNOLOGY] = country.stats.technology
@@ -85,6 +88,7 @@ class GameRepository(private val context: Context) {
             preferences[PreferencesKeys.ELECTION] = country.election?.let { serializeElection(it) } ?: ""
             preferences[PreferencesKeys.UN_RESOLUTIONS] = serializeUnResolutions(country.unitedNations.passedResolutions)
             preferences[PreferencesKeys.SPY_MISSIONS] = serializeSpyMissions(country.activeSpyMissions)
+            preferences[PreferencesKeys.MILITARY_DATA] = serializeMilitary(country.military)
         }
     }
 
@@ -110,6 +114,7 @@ class GameRepository(private val context: Context) {
             val electionString = preferences[PreferencesKeys.ELECTION]
             val unResolutionsString = preferences[PreferencesKeys.UN_RESOLUTIONS]
             val spyMissionsString = preferences[PreferencesKeys.SPY_MISSIONS]
+            val militaryString = preferences[PreferencesKeys.MILITARY_DATA]
 
             val aiNations = if (aiNationsString != null) deserializeAiNations(aiNationsString) else GameLogic.generateAiNations()
             val globalMarket = if (globalMarketString != null) deserializeGlobalMarket(globalMarketString) else GlobalMarket()
@@ -122,6 +127,7 @@ class GameRepository(private val context: Context) {
             val election = if (electionString != null && electionString.isNotBlank()) deserializeElection(electionString) else null
             val passedResolutions = if (unResolutionsString != null) deserializeUnResolutions(unResolutionsString) else emptyList()
             val spyMissions = if (spyMissionsString != null) deserializeSpyMissions(spyMissionsString) else emptyList()
+            val military = if (militaryString != null) deserializeMilitary(militaryString) else Military()
 
             val country = Country(
                 name = name,
@@ -129,7 +135,7 @@ class GameRepository(private val context: Context) {
                 stats = CountryStats(
                     population = preferences[PreferencesKeys.POPULATION] ?: 1000000,
                     economy = preferences[PreferencesKeys.ECONOMY] ?: 50,
-                    military = preferences[PreferencesKeys.MILITARY] ?: 30,
+                    military = preferences[PreferencesKeys.MILITARY_POWER] ?: 30,
                     happiness = preferences[PreferencesKeys.HAPPINESS] ?: 60,
                     stability = preferences[PreferencesKeys.STABILITY] ?: 50,
                     technology = preferences[PreferencesKeys.TECHNOLOGY] ?: 20,
@@ -156,7 +162,8 @@ class GameRepository(private val context: Context) {
                 ministers = ministers,
                 election = election,
                 unitedNations = UnitedNations(memberCount = aiNations.size + 1, passedResolutions = passedResolutions),
-                activeSpyMissions = spyMissions
+                activeSpyMissions = spyMissions,
+                military = military
             )
 
             GameState(
@@ -333,5 +340,38 @@ class GameRepository(private val context: Context) {
                 SpyMission(parts[0], parts[1], parts[2], SpyMissionType.valueOf(parts[3]), parts[4].toInt(), parts[5].toInt(), parts[6].toInt())
             } catch (e: Exception) { null }
         }
+    }
+
+    private fun serializeMilitary(military: Military): String {
+        val armyStr = "${military.army.name},${military.army.manpower},${military.army.equipmentLevel},${military.army.experience}"
+        val navyStr = "${military.navy.name},${military.navy.manpower},${military.navy.equipmentLevel},${military.navy.experience}"
+        val airStr = "${military.airForce.name},${military.airForce.manpower},${military.airForce.equipmentLevel},${military.airForce.experience}"
+        val nukeStr = "${military.nuclearProgram.hasProgram},${military.nuclearProgram.researchProgress},${military.nuclearProgram.warheads}"
+        val mercsStr = military.mercenaries.joinToString(",") { "${it.name}:${it.power}:${it.costPerTurn}:${it.contractTurnsRemaining}" }
+        return "$armyStr;$navyStr;$airStr;${military.doctrine.name};$nukeStr;$mercsStr;${military.basesAbroad}"
+    }
+
+    private fun deserializeMilitary(data: String): Military {
+        try {
+            val parts = data.split(";")
+            val armyParts = parts[0].split(",")
+            val navyParts = parts[1].split(",")
+            val airParts = parts[2].split(",")
+            val nukeParts = parts[4].split(",")
+            val mercsParts = if (parts[5].isNotBlank()) parts[5].split(",").map { 
+                val m = it.split(":")
+                MercenaryGroup(m[0], m[1].toInt(), m[2].toInt(), m[3].toInt())
+            } else emptyList()
+
+            return Military(
+                army = MilitaryBranch(armyParts[0], armyParts[1].toInt(), armyParts[2].toInt(), armyParts[3].toInt()),
+                navy = MilitaryBranch(navyParts[0], navyParts[1].toInt(), navyParts[2].toInt(), navyParts[3].toInt()),
+                airForce = MilitaryBranch(airParts[0], airParts[1].toInt(), airParts[2].toInt(), airParts[3].toInt()),
+                doctrine = MilitaryDoctrine.valueOf(parts[3]),
+                nuclearProgram = NuclearProgram(nukeParts[0].toBoolean(), nukeParts[1].toInt(), nukeParts[2].toInt()),
+                mercenaries = mercsParts,
+                basesAbroad = parts[6].toInt()
+            )
+        } catch (e: Exception) { return Military() }
     }
 }

@@ -119,7 +119,8 @@ data class AiNation(
     val stats: CountryStats,
     val treasury: Int = 5000,
     val isAlive: Boolean = true,
-    val isUNMember: Boolean = true
+    val isUNMember: Boolean = true,
+    val military: Military = Military()
 )
 
 enum class AiPersonality {
@@ -178,6 +179,55 @@ enum class SpyMissionType(val displayName: String, val cost: Int, val duration: 
     INCITE_UNREST("Incite Unrest", 600, 5),
     STAGE_COUP("Stage Coup", 2000, 8)
 }
+
+// --- Military & Warfare Models ---
+enum class MilitaryDoctrine(val displayName: String, val description: String) {
+    BALANCED("Balanced", "No specific focus."),
+    OFFENSIVE("Offensive", "Bonus to attack, penalty to defense."),
+    DEFENSIVE("Defensive", "Bonus to defense, penalty to attack."),
+    GUERRILLA("Guerrilla", "Bonus to resistance, penalty to open field battles.")
+}
+
+data class MilitaryBranch(
+    val name: String,
+    val manpower: Int = 1000,
+    val equipmentLevel: Int = 1, // 1-10
+    val experience: Int = 0 // 0-100
+)
+
+data class NuclearProgram(
+    val hasProgram: Boolean = false,
+    val researchProgress: Int = 0, // 0-100
+    val warheads: Int = 0
+)
+
+data class MercenaryGroup(
+    val name: String,
+    val power: Int,
+    val costPerTurn: Int,
+    val contractTurnsRemaining: Int
+)
+
+data class WarTheater(
+    val id: String,
+    val name: String,
+    val enemyNationId: String,
+    val playerStrength: Int,
+    val enemyStrength: Int,
+    val territoryControlled: Int = 50, // 0-100 (50 is neutral/border, 100 is total victory, 0 is total defeat)
+    val isActive: Boolean = true
+)
+
+data class Military(
+    val army: MilitaryBranch = MilitaryBranch("Army"),
+    val navy: MilitaryBranch = MilitaryBranch("Navy"),
+    val airForce: MilitaryBranch = MilitaryBranch("Air Force"),
+    val doctrine: MilitaryDoctrine = MilitaryDoctrine.BALANCED,
+    val nuclearProgram: NuclearProgram = NuclearProgram(),
+    val mercenaries: List<MercenaryGroup> = emptyList(),
+    val warTheaters: List<WarTheater> = emptyList(),
+    val basesAbroad: Int = 0
+)
 
 data class GlobalMarket(
     val foodPrice: Int = 10,
@@ -265,7 +315,8 @@ data class Country(
     val currentTermYear: Int = 0,
     // V6.0 fields
     val unitedNations: UnitedNations = UnitedNations(),
-    val activeSpyMissions: List<SpyMission> = emptyList()
+    val activeSpyMissions: List<SpyMission> = emptyList(),
+    val military: Military = Military()
 )
 
 data class GameState(
