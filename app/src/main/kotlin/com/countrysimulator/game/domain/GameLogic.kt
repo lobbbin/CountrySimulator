@@ -798,7 +798,8 @@ object GameLogic {
         )
 
         // Check for Assassination, Coup, or Nuclear Winter
-        var gameOverReason = checkGameOver(country.copy(stats = newStats, factions = newFactions))
+        val checkCountry = country.copy(stats = newStats, factions = newFactions, politicalParties = newParties)
+        var gameOverReason = checkGameOver(checkCountry)
         
         if (gameOverReason == null) {
             if (newStats.stability < 20 && (1..100).random() < 5) {
