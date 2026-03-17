@@ -75,12 +75,8 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                         TopAppBar(
                             title = { Text("Country Simulator") },
                             actions = {
-                                IconButton(onClick = { isDarkTheme = !isDarkTheme }) {
-                                    Icon(
-                                        imageVector = Icons.Default.BrightnessMedium,
-                                        contentDescription = "Toggle theme",
-                                        tint = MaterialTheme.colorScheme.onPrimary
-                                    )
+                                TextButton(onClick = { isDarkTheme = !isDarkTheme }) {
+                                    Text(if (isDarkTheme) "☀️ Light" else "🌙 Dark")
                                 }
                             }
                         )
