@@ -77,7 +77,7 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                             actions = {
                                 IconButton(onClick = { isDarkTheme = !isDarkTheme }) {
                                     Icon(
-                                        imageVector = if (isDarkTheme) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                                        imageVector = Icons.Default.BrightnessMedium,
                                         contentDescription = "Toggle theme",
                                         tint = MaterialTheme.colorScheme.onPrimary
                                     )
