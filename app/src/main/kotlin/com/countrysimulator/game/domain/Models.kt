@@ -149,12 +149,12 @@ data class UNResolution(
     val status: ResolutionStatus = ResolutionStatus.PROPOSED
 )
 
-enum class UNResolutionType {
-    CONDEMNATION,
-    SANCTIONS,
-    PEACEKEEPING_MISSION,
-    HUMANITARIAN_AID,
-    GLOBAL_INITIATIVE
+enum class UNResolutionType(val displayName: String) {
+    CONDEMNATION("Condemnation"),
+    SANCTIONS("Sanctions"),
+    PEACEKEEPING_MISSION("Peacekeeping Mission"),
+    HUMANITARIAN_AID("Humanitarian Aid"),
+    GLOBAL_INITIATIVE("Global Initiative")
 }
 
 enum class ResolutionStatus {
