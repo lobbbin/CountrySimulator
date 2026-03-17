@@ -28,15 +28,26 @@ import com.countrysimulator.game.domain.*
 fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
+    var isDarkTheme by remember { mutableStateOf(true) }
 
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Color(0xFF3F51B5),
-            secondary = Color(0xFFFFC107),
-            tertiary = Color(0xFF009688),
-            background = Color(0xFF121212),
-            surface = Color(0xFF1E1E1E)
-        )
+        colorScheme = if (isDarkTheme) {
+            darkColorScheme(
+                primary = Color(0xFF3F51B5),
+                secondary = Color(0xFFFFC107),
+                tertiary = Color(0xFF009688),
+                background = Color(0xFF121212),
+                surface = Color(0xFF1E1E1E)
+            )
+        } else {
+            lightColorScheme(
+                primary = Color(0xFF3F51B5),
+                secondary = Color(0xFFFFC107),
+                tertiary = Color(0xFF009688),
+                background = Color(0xFFF5F5F5),
+                surface = Color(0xFFFFFFFF)
+            )
+        }
     ) {
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -44,11 +55,21 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
             NewGameDialog(onStartGame = { name, govType -> viewModel.startNewGame(name, govType) })
         } else if (uiState.gameState != null) {
             val gameState = uiState.gameState!!
-            
+
             if (gameState.isGameOver && gameState.gameOverReason != null) {
                 GameOverScreen(reason = gameState.gameOverReason!!, message = viewModel.getGameOverMessage(gameState.gameOverReason!!), onRestart = { viewModel.restartGame() })
             } else {
                 Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text("Country Simulator") },
+                            actions = {
+                                TextButton(onClick = { isDarkTheme = !isDarkTheme }) {
+                                    Text(if (isDarkTheme) "☀️ Light" else "🌙 Dark")
+                                }
+                            }
+                        )
+                    },
                     bottomBar = {
                         NavigationBar {
                             NavigationBarItem(icon = { Icon(Icons.Default.Home, "Nation") }, label = { Text("Nation") }, selected = currentScreen == Screen.DASHBOARD, onClick = { currentScreen = Screen.DASHBOARD })

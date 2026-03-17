@@ -11,7 +11,7 @@ import com.countrysimulator.game.domain.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v6_qol")
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "game_data_v7")
 
 class GameRepository(private val context: Context) {
 
