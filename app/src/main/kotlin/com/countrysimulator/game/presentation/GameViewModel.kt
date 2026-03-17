@@ -371,6 +371,68 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun toggleLaw(lawId: String) {
+        updateCountry { country ->
+            val newLaws = country.activeLaws.map { law ->
+                if (law.id == lawId) {
+                    if (!law.isActive && country.treasury < law.cost) law
+                    else law.copy(isActive = !law.isActive)
+                } else law
+            }
+            val cost = country.activeLaws.find { it.id == lawId && !it.isActive }?.cost ?: 0
+            country.copy(activeLaws = newLaws, treasury = country.treasury - cost)
+        }
+    }
+
+    fun runPropaganda() {
+        updateCountry { country ->
+            if (country.treasury < 1000) country
+            else country.copy(
+                stats = country.stats.copy(
+                    propaganda = (country.stats.propaganda + 15).coerceAtMost(100),
+                    happiness = (country.stats.happiness + 5).coerceAtMost(100),
+                    stability = (country.stats.stability + 10).coerceAtMost(100)
+                ),
+                treasury = country.treasury - 1000
+            )
+        }
+    }
+
+    fun bribeFaction(factionName: String) {
+        updateCountry { country ->
+            if (country.treasury < 2000) country
+            else {
+                val newFactions = country.factions.map { faction ->
+                    if (faction.name == factionName) faction.copy(loyalty = (faction.loyalty + 20).coerceAtMost(100))
+                    else faction
+                }
+                country.copy(
+                    factions = newFactions,
+                    stats = country.stats.copy(corruption = (country.stats.corruption + 5).coerceAtMost(100)),
+                    treasury = country.treasury - 2000
+                )
+            }
+        }
+    }
+
+    fun hireMinister(name: String, role: MinisterRole) {
+        updateCountry { country ->
+            if (country.treasury < 3000) country
+            else {
+                val newMinister = Minister("m_${System.currentTimeMillis()}", name, role, (40..80).random(), (0..20).random(), 100)
+                val newMinisters = country.ministers.filter { it.role != role } + newMinister
+                country.copy(ministers = newMinisters, treasury = country.treasury - 3000)
+            }
+        }
+    }
+
+    fun triggerElection() {
+        updateCountry { country ->
+            if (country.election?.isActive == true) country
+            else country.copy(election = Election(year = country.year, isActive = true, turnsRemaining = 1))
+        }
+    }
+
     fun getGameOverMessage(reason: GameOverReason): String {
         return when (reason) {
             GameOverReason.BANKRUPTCY -> "Your country has gone bankrupt! The government has collapsed due to unsustainable debt."
@@ -381,6 +443,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             GameOverReason.ENVIRONMENTAL_COLLAPSE -> "Environmental collapse has made your nation uninhabitable. Mass exodus ensues."
             GameOverReason.NUCLEAR_WINTER -> "Nuclear war has brought on a devastating winter. Civilization has collapsed."
             GameOverReason.CIVIL_WAR -> "The nation has split into warring factions. Civil war has destroyed everything."
+            GameOverReason.ASSASSINATION -> "You have been assassinated by political rivals! The nation descends into chaos."
+            GameOverReason.COUP -> "The military has seized power in a violent coup! Your leadership has ended."
         }
     }
 }

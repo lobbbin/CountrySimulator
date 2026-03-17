@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,12 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.countrysimulator.game.domain.AiNation
-import com.countrysimulator.game.domain.DiplomaticRelation
-import com.countrysimulator.game.domain.GameOverReason
-import com.countrysimulator.game.domain.GameState
-import com.countrysimulator.game.domain.GovernmentType
-import com.countrysimulator.game.domain.RelationStatus
+import com.countrysimulator.game.domain.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +69,12 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 onClick = { currentScreen = Screen.DASHBOARD }
                             )
                             NavigationBarItem(
+                                icon = { Icon(Icons.Default.AccountBox, "Politics") },
+                                label = { Text("Politics") },
+                                selected = currentScreen == Screen.POLITICS,
+                                onClick = { currentScreen = Screen.POLITICS }
+                            )
+                            NavigationBarItem(
                                 icon = { Icon(Icons.Default.List, "World") },
                                 label = { Text("World") },
                                 selected = currentScreen == Screen.WORLD,
@@ -94,6 +96,10 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                                 incomeThisTurn = uiState.incomeThisTurn,
                                 newsHeadline = uiState.newsHeadline,
                                 onNextTurn = { viewModel.nextTurn() },
+                                viewModel = viewModel
+                            )
+                            Screen.POLITICS -> PoliticsScreen(
+                                gameState = gameState,
                                 viewModel = viewModel
                             )
                             Screen.WORLD -> WorldScreen(
@@ -123,7 +129,7 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     }
 }
 
-enum class Screen { DASHBOARD, WORLD, MARKET }
+enum class Screen { DASHBOARD, POLITICS, WORLD, MARKET }
 enum class DiplomacyAction { IMPROVE, TRADE, ALLIANCE, WAR }
 
 @Composable
@@ -186,6 +192,8 @@ fun DashboardScreen(
         StatBar("Military", country.stats.military, 100, 0xFFF44336.toInt())
         StatBar("Stability", country.stats.stability, 100, 0xFF9C27B0.toInt())
         StatBar("Tech", country.stats.technology, 100, 0xFF00BCD4.toInt())
+        StatBar("Corruption", country.stats.corruption, 100, Color.Red.hashCode())
+        StatBar("Propaganda", country.stats.propaganda, 100, Color.Cyan.hashCode())
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -200,14 +208,14 @@ fun DashboardScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Actions
-        Text("Actions", fontWeight = FontWeight.Bold)
+        Text("Quick Actions", fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButtonSmall("Invest Econ ($1000)", { viewModel.investInEconomy() }, country.treasury >= 1000, Modifier.weight(1f))
+            ActionButtonSmall("Invest Econ ($1K)", { viewModel.investInEconomy() }, country.treasury >= 1000, Modifier.weight(1f))
             ActionButtonSmall("Recruit Mil ($800)", { viewModel.recruitMilitary() }, country.treasury >= 800, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButtonSmall("Improve Infra ($1200)", { viewModel.improveInfrastructure() }, country.treasury >= 1200, Modifier.weight(1f))
-            ActionButtonSmall("Research Tech ($1500)", { viewModel.investInTechnology() }, country.treasury >= 1500, Modifier.weight(1f))
+            ActionButtonSmall("Improve Infra ($1.2K)", { viewModel.improveInfrastructure() }, country.treasury >= 1200, Modifier.weight(1f))
+            ActionButtonSmall("Propaganda ($1K)", { viewModel.runPropaganda() }, country.treasury >= 1000, Modifier.weight(1f))
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -218,6 +226,105 @@ fun DashboardScreen(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
             Text("NEXT TURN", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun PoliticsScreen(gameState: GameState, viewModel: GameViewModel) {
+    val country = gameState.country
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        item {
+            Text("Government & Politics", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text("Government Type: ${country.governmentType.displayName}", fontSize = 14.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Political Parties", fontWeight = FontWeight.Bold)
+            country.politicalParties.forEach { party ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text(party.name, fontWeight = FontWeight.Bold)
+                            Text(party.ideology.displayName, fontSize = 12.sp, color = Color.Gray)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Popularity: ${party.popularity}%", fontWeight = FontWeight.Bold)
+                            LinearProgressIndicator(progress = { party.popularity / 100f }, modifier = Modifier.width(80.dp))
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Cabinet Ministers", fontWeight = FontWeight.Bold)
+            country.ministers.forEach { minister ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text(minister.name, fontWeight = FontWeight.Bold)
+                            Text(minister.role.displayName, fontSize = 12.sp, color = Color.Gray)
+                        }
+                        Text("Skill: ${minister.skill}", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (country.ministers.size < 6) {
+                Button(onClick = { viewModel.hireMinister("New Candidate", MinisterRole.values().random()) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Hire New Minister ($3000)")
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Political Factions", fontWeight = FontWeight.Bold)
+            country.factions.forEach { faction ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text(faction.name, fontWeight = FontWeight.Bold)
+                            Text("Power: ${faction.power}%", fontSize = 12.sp)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Loyalty: ${faction.loyalty}%", modifier = Modifier.width(80.dp), fontSize = 12.sp)
+                            LinearProgressIndicator(progress = { faction.loyalty / 100f }, modifier = Modifier.weight(1f), color = if (faction.loyalty < 30) Color.Red else Color.Green)
+                            Button(onClick = { viewModel.bribeFaction(faction.name) }, modifier = Modifier.padding(start = 8.dp), contentPadding = PaddingValues(0.dp)) {
+                                Text("Bribe ($2K)", fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            Text("Active Laws", fontWeight = FontWeight.Bold)
+            country.activeLaws.forEach { law ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(law.name, fontWeight = FontWeight.Bold)
+                            Text(law.description, fontSize = 10.sp, color = Color.Gray)
+                        }
+                        Switch(checked = law.isActive, onCheckedChange = { viewModel.toggleLaw(law.id) })
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        
+        if (country.governmentType != GovernmentType.DEMOCRACY) {
+            item {
+                Button(onClick = { viewModel.triggerElection() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) {
+                    Text("Hold Emergency Election")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
@@ -311,7 +418,6 @@ fun AiNationCard(aiNation: AiNation, relation: DiplomaticRelation, onAction: (Di
                         }
                     } else {
                          Text("You are at war with this nation!", color = Color.Red, fontWeight = FontWeight.Bold)
-                         // Peace option could go here
                     }
                 }
             },
@@ -359,17 +465,14 @@ fun MarketCard(name: String, price: Int, desc: String) {
     }
 }
 
-// ... (Reuse existing components: NewGameDialog, GameOverScreen, EventDialog, etc.)
-// I will include them here to ensure the file is complete.
-
 @Composable
 fun NewGameDialog(onStartGame: (String, GovernmentType) -> Unit) {
     var countryName by remember { mutableStateOf("") }
     var selectedGovType by remember { mutableStateOf(GovernmentType.DEMOCRACY) }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Country Simulator 3.0", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text("The World Stage Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
+        Text("Country Simulator 5.0", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text("Government & Politics Update", fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary)
         Spacer(modifier = Modifier.height(24.dp))
         OutlinedTextField(value = countryName, onValueChange = { countryName = it }, label = { Text("Country Name") }, modifier = Modifier.fillMaxWidth())
         Spacer(modifier = Modifier.height(16.dp))
@@ -422,7 +525,6 @@ fun GameOverScreen(reason: GameOverReason, message: String, onRestart: () -> Uni
     }
 }
 
-// Helper Components
 @Composable fun StatBar(label: String, value: Int, max: Int, color: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text(label, modifier = Modifier.width(80.dp), fontSize = 12.sp)

@@ -634,20 +634,49 @@ object GameLogic {
     }
 
     fun processTurn(currentState: GameState): GameState {
-        val country = currentState.country
+        var country = currentState.country
         
-        // 1. Process Player Turn
+        // 1. Process Election (if any)
+        country = processElection(country)
+
+        // 2. Process Player Turn
         val income = calculateTurnIncome(country)
         var newTreasury = country.treasury + income
         var newStats = country.stats.copy()
-        var newResources = calculateResourceProduction(country.resources, newStats)
+        
+        // Minister Bonuses
+        country.ministers.forEach { minister ->
+            when (minister.role) {
+                MinisterRole.ECONOMY -> newStats = newStats.copy(economy = (newStats.economy + minister.skill / 20).coerceAtMost(100))
+                MinisterRole.DEFENSE -> newStats = newStats.copy(military = (newStats.military + minister.skill / 20).coerceAtMost(100))
+                else -> {}
+            }
+        }
 
+        // Active Laws effects
+        country.activeLaws.filter { it.isActive }.forEach { law ->
+            newStats = newStats.copy(
+                stability = (newStats.stability + law.stabilityEffect).coerceIn(0, 100),
+                economy = (newStats.economy + law.economyEffect).coerceIn(0, 100),
+                happiness = (newStats.happiness + law.happinessEffect).coerceIn(0, 100),
+                corruption = (newStats.corruption + law.corruptionEffect).coerceIn(0, 100)
+            )
+            newTreasury -= law.cost / 10 // Cost per turn (maintenance)
+        }
+
+        var newResources = calculateResourceProduction(country.resources, newStats)
         newStats = getGovernmentBonus(country.governmentType)(newStats)
 
-        // 2. Process AI Turns
+        // Corruption effect
+        if (newStats.corruption > 50) {
+            newTreasury -= (newTreasury * (newStats.corruption / 200.0)).toInt()
+            newStats = newStats.copy(stability = (newStats.stability - 2).coerceAtLeast(0))
+        }
+
+        // 3. Process AI Turns
         val newAiNations = currentState.aiNations.map { processAiTurn(it, currentState.globalMarket) }
 
-        // 3. Global Market Fluctuation
+        // 4. Global Market Fluctuation
         val globalStability = newAiNations.sumOf { it.stats.stability } / newAiNations.size
         val newGlobalMarket = currentState.globalMarket.copy(
             globalInstability = 100 - globalStability,
@@ -655,22 +684,46 @@ object GameLogic {
             energyPrice = (currentState.globalMarket.energyPrice + (-1..1).random()).coerceIn(5, 50)
         )
 
-        // 4. Random Events
+        // 5. Random Events (including new Political ones)
+        val allEvents = events + politicalEvents
         val eventRoll = (1..100).random()
         val eventThreshold = 100 - newStats.stability + 20
-        val event = if (eventRoll <= eventThreshold && events.isNotEmpty()) {
-            events.random()
+        val event = if (eventRoll <= eventThreshold && allEvents.isNotEmpty()) {
+            allEvents.random()
         } else null
 
         event?.let {
             newStats = it.effect(newStats)
         }
 
-        // 5. Population & Stat Decay/Growth
+        // 6. Factions & Parties update
+        val newFactions = country.factions.map { faction ->
+            val loyaltyChange = if (newStats.happiness > 60) 2 else if (newStats.happiness < 40) -2 else 0
+            faction.copy(loyalty = (faction.loyalty + loyaltyChange + (-2..2).random()).coerceIn(0, 100))
+        }
+
+        val newParties = country.politicalParties.map { party ->
+            val popChange = if (newStats.economy > 60) 2 else if (newStats.economy < 40) -2 else 0
+            party.copy(popularity = (party.popularity + popChange + (-3..3).random()).coerceIn(0, 100))
+        }
+
+        // 7. Population & Stat Decay/Growth
         val populationGrowth = 0.01 // Simplified
         newStats = newStats.copy(
-            population = (newStats.population * (1 + populationGrowth)).toInt().coerceAtMost(100000000)
+            population = (newStats.population * (1 + populationGrowth)).toInt().coerceAtMost(100000000),
+            corruption = (newStats.corruption + (1..3).random()).coerceAtMost(100) // Natural corruption growth
         )
+
+        // Check for Assassination or Coup
+        var gameOverReason = checkGameOver(country.copy(stats = newStats, factions = newFactions))
+        
+        if (gameOverReason == null) {
+            if (newStats.stability < 20 && (1..100).random() < 5) {
+                gameOverReason = GameOverReason.ASSASSINATION
+            } else if (newFactions.any { it.loyalty < 10 && it.power > 40 } && (1..100).random() < 10) {
+                gameOverReason = GameOverReason.COUP
+            }
+        }
 
         val newCountry = country.copy(
             stats = newStats,
@@ -678,19 +731,28 @@ object GameLogic {
             treasury = newTreasury,
             year = country.year + 1,
             turnCount = country.turnCount + 1,
-            diplomaticRelations = country.diplomaticRelations // In future, update relations based on events
+            factions = newFactions,
+            politicalParties = newParties,
+            currentTermYear = country.currentTermYear + 1
         )
 
-        val gameOverReason = checkGameOver(newCountry)
+        // Auto-trigger election every 4 years in Democracy
+        var finalCountry = newCountry
+        if (country.governmentType == GovernmentType.DEMOCRACY && newCountry.currentTermYear >= 4) {
+            finalCountry = newCountry.copy(
+                election = Election(year = newCountry.year, isActive = true, turnsRemaining = 1),
+                currentTermYear = 0
+            )
+        }
 
         val newEventHistory = mutableListOf<String>()
         event?.let {
-            newEventHistory.add("Year ${country.year + 1}: ${it.title}")
+            newEventHistory.add("Year ${finalCountry.year}: ${it.title}")
         }
         newEventHistory.addAll(country.turnCount.coerceAtMost(9).let { country.eventHistory.take(it) })
 
         return currentState.copy(
-            country = newCountry.copy(eventHistory = newEventHistory),
+            country = finalCountry.copy(eventHistory = newEventHistory),
             aiNations = newAiNations,
             globalMarket = newGlobalMarket,
             isGameOver = gameOverReason != null,
@@ -701,9 +763,91 @@ object GameLogic {
         )
     }
 
+    private val politicalEvents = listOf(
+        GameEvent(
+            id = "corruption_scandal",
+            title = "Corruption Scandal",
+            description = "A major news outlet has exposed a bribery ring in your cabinet!",
+            category = EventCategory.POLITICAL,
+            severity = EventSeverity.MAJOR,
+            effect = { stats -> stats.copy(stability = (stats.stability - 15).coerceAtLeast(0), happiness = (stats.happiness - 10).coerceAtLeast(0), corruption = (stats.corruption + 10).coerceAtMost(100)) },
+            options = listOf(
+                EventOption("Fire Involved Ministers", "Public purge") { stats, treasury, resources ->
+                    Triple(stats.copy(corruption = (stats.corruption - 20).coerceAtLeast(0), stability = stats.stability + 5), treasury - 500, resources)
+                },
+                EventOption("Cover Up", "Silence the media") { stats, treasury, resources ->
+                    Triple(stats.copy(happiness = stats.happiness - 10, stability = stats.stability + 10), treasury - 2000, resources)
+                },
+                EventOption("Ignore", "Let it blow over") { stats, treasury, resources ->
+                    Triple(stats.copy(stability = stats.stability - 10), treasury, resources)
+                }
+            )
+        ),
+        GameEvent(
+            id = "referendum_demand",
+            title = "Referendum Demand",
+            description = "The people are demanding a referendum on constitutional changes.",
+            category = EventCategory.POLITICAL,
+            severity = EventSeverity.MODERATE,
+            effect = { stats -> stats.copy(stability = (stats.stability - 5).coerceAtLeast(0)) },
+            options = listOf(
+                EventOption("Hold Referendum", "Let the people decide") { stats, treasury, resources ->
+                    Triple(stats.copy(happiness = stats.happiness + 15, stability = stats.stability + 10), treasury - 1000, resources)
+                },
+                EventOption("Decline", "Executive authority") { stats, treasury, resources ->
+                    Triple(stats.copy(happiness = stats.happiness - 15, stability = stats.stability - 5), treasury, resources)
+                }
+            )
+        ),
+        GameEvent(
+            id = "ministerial_rivalry",
+            title = "Ministerial Rivalry",
+            description = "Two of your ministers are publicly feuding, causing chaos.",
+            category = EventCategory.POLITICAL,
+            severity = EventSeverity.MINOR,
+            effect = { stats -> stats.copy(stability = (stats.stability - 5).coerceAtLeast(0)) },
+            options = listOf(
+                EventOption("Mediate", "Peace talk") { stats, treasury, resources ->
+                    Triple(stats.copy(stability = stats.stability + 5), treasury - 200, resources)
+                },
+                EventOption("Dismiss Both", "New blood") { stats, treasury, resources ->
+                    Triple(stats.copy(stability = stats.stability - 10, corruption = (stats.corruption - 5).coerceAtLeast(0)), treasury - 1000, resources)
+                }
+            )
+        )
+    )
+
     fun generateInitialCountry(name: String, governmentType: GovernmentType): Pair<Country, List<AiNation>> {
         val aiNations = generateAiNations()
         val relations = generateInitialRelations(aiNations)
+        
+        val parties = listOf(
+            PoliticalParty("Liberal Alliance", Ideology.LIBERAL, 30, 20),
+            PoliticalParty("Conservative Union", Ideology.CONSERVATIVE, 30, 20),
+            PoliticalParty("Socialist Front", Ideology.SOCIALIST, 20, 10),
+            PoliticalParty("Nationalist Party", Ideology.NATIONALIST, 10, 5),
+            PoliticalParty("Green Party", Ideology.ECOLOGIST, 10, 5)
+        )
+
+        val factions = listOf(
+            PoliticalFaction("Military Elite", 70, 30),
+            PoliticalFaction("Labor Unions", 60, 20),
+            PoliticalFaction("Business Oligarchs", 50, 25),
+            PoliticalFaction("Religious Groups", 80, 15),
+            PoliticalFaction("Student Activists", 40, 10)
+        )
+
+        val ministers = listOf(
+            Minister("m1", "John Smith", MinisterRole.ECONOMY, 60, 5, 80),
+            Minister("m2", "Elena Vance", MinisterRole.DEFENSE, 75, 10, 90),
+            Minister("m3", "Marcus Cole", MinisterRole.INTERIOR, 55, 20, 70)
+        )
+
+        val laws = listOf(
+            Law("l1", "Progressive Taxation", "Increases revenue but lowers happiness of the wealthy.", false, 0, 0, 10, -5, -5),
+            Law("l2", "Military Draft", "Increases military power but lowers happiness.", false, 0, -5, -10, -15, 0),
+            Law("l3", "Universal Healthcare", "Increases healthcare and happiness but costs treasury.", false, 2000, 5, 0, 15, -2)
+        )
         
         val country = Country(
             name = name,
@@ -712,8 +856,38 @@ object GameLogic {
             resources = Resources(),
             diplomaticRelations = relations,
             year = 2024,
-            treasury = 10000
+            treasury = 10000,
+            politicalParties = parties,
+            factions = factions,
+            ministers = ministers,
+            activeLaws = laws
         )
         return Pair(country, aiNations)
+    }
+
+    fun processElection(country: Country): Country {
+        val election = country.election ?: return country
+        if (!election.isActive) return country
+
+        val newTurnsRemaining = election.turnsRemaining - 1
+        if (newTurnsRemaining > 0) {
+            return country.copy(election = election.copy(turnsRemaining = newTurnsRemaining))
+        }
+
+        // Election concludes
+        val results = country.politicalParties.associate { it.name to (it.popularity + (-10..10).random()).coerceIn(0, 100) }
+        val winner = results.maxBy { it.value }.key
+        
+        val newStats = if (country.governmentType == GovernmentType.DEMOCRACY) {
+            country.stats.copy(stability = (country.stats.stability + 10).coerceAtMost(100))
+        } else {
+            country.stats.copy(stability = (country.stats.stability - 15).coerceAtLeast(0))
+        }
+
+        return country.copy(
+            election = election.copy(isActive = false, turnsRemaining = 0, results = results),
+            stats = newStats,
+            eventHistory = listOf("Election Year: $winner won the election!") + country.eventHistory
+        )
     }
 }

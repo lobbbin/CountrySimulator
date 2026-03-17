@@ -71,7 +71,9 @@ data class CountryStats(
     val education: Int = 30,
     val healthcare: Int = 30,
     val environment: Int = 50,
-    val crime: Int = 20
+    val crime: Int = 20,
+    val corruption: Int = 10, // 0-100
+    val propaganda: Int = 0    // 0-100
 )
 
 data class Resources(
@@ -125,6 +127,65 @@ data class GlobalMarket(
     val globalInstability: Int = 10 // 0-100, affects prices
 )
 
+enum class Ideology(val displayName: String) {
+    LIBERAL("Liberal"),
+    CONSERVATIVE("Conservative"),
+    SOCIALIST("Socialist"),
+    NATIONALIST("Nationalist"),
+    AUTHORITARIAN("Authoritarian"),
+    ECOLOGIST("Ecologist")
+}
+
+data class PoliticalParty(
+    val name: String,
+    val ideology: Ideology,
+    val popularity: Int = 0, // 0-100
+    val influence: Int = 0   // 0-100
+)
+
+data class Law(
+    val id: String,
+    val name: String,
+    val description: String,
+    val isActive: Boolean = false,
+    val cost: Int = 0,
+    val stabilityEffect: Int = 0,
+    val economyEffect: Int = 0,
+    val happinessEffect: Int = 0,
+    val corruptionEffect: Int = 0
+)
+
+data class PoliticalFaction(
+    val name: String,
+    val loyalty: Int = 50, // 0-100
+    val power: Int = 20    // 0-100
+)
+
+data class Minister(
+    val id: String,
+    val name: String,
+    val role: MinisterRole,
+    val skill: Int = 50, // 0-100
+    val corruption: Int = 10, // 0-100
+    val loyalty: Int = 70 // 0-100
+)
+
+enum class MinisterRole(val displayName: String) {
+    ECONOMY("Minister of Economy"),
+    DEFENSE("Minister of Defense"),
+    INTERIOR("Minister of Interior"),
+    EDUCATION("Minister of Education"),
+    HEALTH("Minister of Health"),
+    FOREIGN_AFFAIRS("Minister of Foreign Affairs")
+}
+
+data class Election(
+    val year: Int,
+    val isActive: Boolean = false,
+    val turnsRemaining: Int = 0,
+    val results: Map<String, Int> = emptyMap()
+)
+
 data class Country(
     val name: String,
     val governmentType: GovernmentType,
@@ -135,7 +196,13 @@ data class Country(
     val treasury: Int = 10000,
     val turnCount: Int = 0,
     val eventHistory: List<String> = emptyList(),
-    val policies: List<String> = emptyList()
+    val policies: List<String> = emptyList(),
+    val politicalParties: List<PoliticalParty> = emptyList(),
+    val activeLaws: List<Law> = emptyList(),
+    val factions: List<PoliticalFaction> = emptyList(),
+    val ministers: List<Minister> = emptyList(),
+    val election: Election? = null,
+    val currentTermYear: Int = 0
 )
 
 data class GameState(
@@ -193,5 +260,7 @@ enum class GameOverReason {
     FAMINE,
     ENVIRONMENTAL_COLLAPSE,
     NUCLEAR_WINTER,
-    CIVIL_WAR
+    CIVIL_WAR,
+    ASSASSINATION,
+    COUP
 }
