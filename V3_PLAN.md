@@ -1,33 +1,48 @@
-# Country Simulator 3.0: The World Stage Update
+# Country Simulator v6.0 - Global Power Plan
 
-**Goal:** Transform the game from a solitary internal management sim into a global geopolitical strategy game.
+## Completed Phases
 
-## New Features
+### Phase 1: Internal Management (v1.0-v2.0)
+*   Base stats system.
+*   Government types and basic bonuses.
+*   Random events system.
 
-### 1. Interactive Global Diplomacy
-*   **Rival Nations:** 8 unique AI nations with distinct personalities (Aggressive, Peaceful, Trade-focused).
-*   **Diplomatic Actions:**
-    *   **Trade Deal:** Boost economy for both, requires good relations.
-    *   **Non-Aggression Pact:** Prevents war for X turns.
-    *   **Alliance:** Call into wars, defensive pacts.
-    *   **Insult/Denounce:** Lowers relations, might provoke war (but boosts internal nationalism).
-    *   **Declare War:** Enter the new War State.
+### Phase 2: The World Stage (v3.0-v4.0)
+*   AI Nations with personalities.
+*   Diplomatic relations and trade agreements.
+*   Global market for resources.
+*   War/Peace state mechanics.
 
-### 2. Warfare System Overhaul
-*   **War State:** Wars are no longer instant "Game Over" or simple text events. They are multi-turn conflicts.
-*   **War Exhaustion:** Long wars drain stability and happiness.
-*   **Battle Mechanics:** Each turn at war involves a battle calculation based on Military Tech + Troop Count + Strategy.
+### Phase 3: Political Deep Dive (v5.0)
+*   Political parties and popularity.
+-   Election mechanics (automatic and emergency).
+-   Cabinet Ministers with specialized roles.
+-   Corruption and Propaganda systems.
+-   Active Law system (Progressive tax, Draft, etc).
 
-### 3. Global Economy
-*   **Global Market:** Resource prices (Food, Energy, Materials) fluctuate based on global events (e.g., if a major energy producer goes to war, energy prices spike).
+### Phase 4: Diplomacy & Intelligence (v6.0)
+-   United Nations Organization with resolution voting.
+-   Espionage system (Intel, Sabotage, Coups).
+-   Soft Power mechanics.
+-   Economic Sanctions and Foreign Aid.
 
-### 4. UI Overhaul
-*   **Navigation:** Bottom navigation bar to switch between:
-    *   **Dashboard:** (Classic view)
-    *   **World:** (List of nations & diplomacy)
-    *   **Military:** (War room & recruitment)
-    *   **Tech/Policy:** (Research tree)
+### Phase 5: Modern Warfare (v6.0)
+-   Tri-branch military (Army, Navy, Air Force).
+-   Nuclear Weapons development program.
+-   War Theaters with territory control.
+-   Mercenary contracts.
+-   Military Doctrine selection.
 
-## Technical Changes
-*   **AI Turn Processor:** `GameLogic` will now simulate the turn for all 8 AI nations, calculating their growth, wars between each other, and interactions with the player.
-*   **Event System Expansion:** New events triggered by global state (e.g., "Ally calls for aid", "Global Market Crash").
+## Future Plans
+
+### Phase 6: Economic Superpower (v7.0)
+-   National Debt and Interest.
+-   Stock Market investments.
+-   Specific Industrial sectors (Mining, Manufacturing).
+-   Tourism and Cultural exports.
+
+### Phase 7: Technological Singularity (v8.0)
+-   Complex Tech Tree with prerequisites.
+-   Space Race and Colonization.
+-   AI Rights and Ethics.
+-   Climate Change mitigation or exploitation.
