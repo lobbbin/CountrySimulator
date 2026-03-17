@@ -570,6 +570,31 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Election & QoL V6.5 ---
+
+    fun campaign(amount: Int) {
+        updateCountry { country ->
+            if (country.treasury < amount || country.election?.isActive != true) country
+            else {
+                val currentEffort = country.election.campaignEffort
+                country.copy(
+                    election = country.election.copy(campaignEffort = currentEffort + amount),
+                    treasury = country.treasury - amount
+                )
+            }
+        }
+    }
+
+    fun dismissLogEntry(index: Int) {
+        updateCountry { country ->
+            val newList = country.gameLog.toMutableList()
+            if (index in newList.indices) {
+                newList.removeAt(index)
+            }
+            country.copy(gameLog = newList)
+        }
+    }
+
     fun getGameOverMessage(reason: GameOverReason): String {
         return when (reason) {
             GameOverReason.BANKRUPTCY -> "Your country has gone bankrupt! The government has collapsed due to unsustainable debt."

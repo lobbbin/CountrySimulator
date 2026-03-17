@@ -72,9 +72,21 @@ data class CountryStats(
     val healthcare: Int = 30,
     val environment: Int = 50,
     val crime: Int = 20,
-    val corruption: Int = 10, // 0-100
-    val propaganda: Int = 0,    // 0-100
-    val softPower: Int = 0      // 0-100 (New)
+    val corruption: Int = 10,
+    val propaganda: Int = 0,
+    val softPower: Int = 0,
+    val demographics: VoterDemographics = VoterDemographics() // New
+)
+
+data class VoterDemographics(
+    val youthPercent: Int = 30,
+    val middleAgePercent: Int = 50,
+    val elderlyPercent: Int = 20,
+    val urbanPercent: Int = 60,
+    val ruralPercent: Int = 40,
+    val wealthyPercent: Int = 10,
+    val middleClassPercent: Int = 40,
+    val workingClassPercent: Int = 50
 )
 
 data class Resources(
@@ -101,7 +113,7 @@ data class DiplomaticRelation(
     val hasAlliance: Boolean = false,
     val warScore: Int = 0,
     val warExhaustion: Int = 0,
-    val sanctions: List<SanctionType> = emptyList(), // Sanctions imposed BY us ON them
+    val sanctions: List<SanctionType> = emptyList(),
     val isSpying: Boolean = false
 )
 
@@ -124,14 +136,9 @@ data class AiNation(
 )
 
 enum class AiPersonality {
-    AGGRESSIVE, // Military focus, likely to war
-    PEACEFUL,   // Stability focus, likes alliances
-    TRADER,     // Economy focus, likes trade deals
-    SCIENTIFIC, // Tech focus, neutral
-    ISOLATIONIST // Hard to influence
+    AGGRESSIVE, PEACEFUL, TRADER, SCIENTIFIC, ISOLATIONIST
 }
 
-// --- United Nations Models ---
 data class UnitedNations(
     val memberCount: Int = 0,
     val activeResolutions: List<UNResolution> = emptyList(),
@@ -141,7 +148,7 @@ data class UnitedNations(
 data class UNResolution(
     val id: String,
     val type: UNResolutionType,
-    val targetNationId: String?, // Null if general
+    val targetNationId: String?,
     val description: String,
     val yearProposed: Int,
     val votesFor: Int = 0,
@@ -161,7 +168,6 @@ enum class ResolutionStatus {
     PROPOSED, PASSED, FAILED
 }
 
-// --- Espionage Models ---
 data class SpyMission(
     val id: String,
     val targetNationId: String,
@@ -180,7 +186,6 @@ enum class SpyMissionType(val displayName: String, val cost: Int, val duration: 
     STAGE_COUP("Stage Coup", 2000, 8)
 }
 
-// --- Military & Warfare Models ---
 enum class MilitaryDoctrine(val displayName: String, val description: String) {
     BALANCED("Balanced", "No specific focus."),
     OFFENSIVE("Offensive", "Bonus to attack, penalty to defense."),
@@ -191,13 +196,13 @@ enum class MilitaryDoctrine(val displayName: String, val description: String) {
 data class MilitaryBranch(
     val name: String,
     val manpower: Int = 1000,
-    val equipmentLevel: Int = 1, // 1-10
-    val experience: Int = 0 // 0-100
+    val equipmentLevel: Int = 1,
+    val experience: Int = 0
 )
 
 data class NuclearProgram(
     val hasProgram: Boolean = false,
-    val researchProgress: Int = 0, // 0-100
+    val researchProgress: Int = 0,
     val warheads: Int = 0
 )
 
@@ -214,7 +219,7 @@ data class WarTheater(
     val enemyNationId: String,
     val playerStrength: Int,
     val enemyStrength: Int,
-    val territoryControlled: Int = 50, // 0-100 (50 is neutral/border, 100 is total victory, 0 is total defeat)
+    val territoryControlled: Int = 50,
     val isActive: Boolean = true
 )
 
@@ -233,10 +238,9 @@ data class GlobalMarket(
     val foodPrice: Int = 10,
     val energyPrice: Int = 15,
     val materialsPrice: Int = 20,
-    val globalInstability: Int = 10 // 0-100, affects prices
+    val globalInstability: Int = 10
 )
 
-// ... Ideology, PoliticalParty, Law, PoliticalFaction, Minister, Election ... (Keep as is)
 enum class Ideology(val displayName: String) {
     LIBERAL("Liberal"),
     CONSERVATIVE("Conservative"),
@@ -249,8 +253,10 @@ enum class Ideology(val displayName: String) {
 data class PoliticalParty(
     val name: String,
     val ideology: Ideology,
-    val popularity: Int = 0, // 0-100
-    val influence: Int = 0   // 0-100
+    val popularity: Int = 0,
+    val influence: Int = 0,
+    val funding: Int = 1000, // New
+    val leaderName: String = "Leader" // New
 )
 
 data class Law(
@@ -267,17 +273,17 @@ data class Law(
 
 data class PoliticalFaction(
     val name: String,
-    val loyalty: Int = 50, // 0-100
-    val power: Int = 20    // 0-100
+    val loyalty: Int = 50,
+    val power: Int = 20
 )
 
 data class Minister(
     val id: String,
     val name: String,
     val role: MinisterRole,
-    val skill: Int = 50, // 0-100
-    val corruption: Int = 10, // 0-100
-    val loyalty: Int = 70 // 0-100
+    val skill: Int = 50,
+    val corruption: Int = 10,
+    val loyalty: Int = 70
 )
 
 enum class MinisterRole(val displayName: String) {
@@ -293,8 +299,21 @@ data class Election(
     val year: Int,
     val isActive: Boolean = false,
     val turnsRemaining: Int = 0,
-    val results: Map<String, Int> = emptyMap()
+    val results: Map<String, Int> = emptyMap(),
+    val campaignEffort: Int = 0, // Player's campaign spending
+    val debateScore: Int = 0,    // Success in debates
+    val coalitionFormed: Boolean = false,
+    val coalitionPartners: List<String> = emptyList()
 )
+
+data class GameLogEntry(
+    val turn: Int,
+    val year: Int,
+    val message: String,
+    val type: LogType = LogType.INFO
+)
+
+enum class LogType { INFO, SUCCESS, WARNING, DANGER, EVENT }
 
 data class Country(
     val name: String,
@@ -313,10 +332,10 @@ data class Country(
     val ministers: List<Minister> = emptyList(),
     val election: Election? = null,
     val currentTermYear: Int = 0,
-    // V6.0 fields
     val unitedNations: UnitedNations = UnitedNations(),
     val activeSpyMissions: List<SpyMission> = emptyList(),
-    val military: Military = Military()
+    val military: Military = Military(),
+    val gameLog: List<GameLogEntry> = emptyList() // New
 )
 
 data class GameState(
@@ -342,22 +361,11 @@ data class GameEvent(
 )
 
 enum class EventCategory {
-    ECONOMIC,
-    MILITARY,
-    POLITICAL,
-    DISASTER,
-    SCIENTIFIC,
-    CULTURAL,
-    DIPLOMATIC,
-    ENVIRONMENTAL,
-    SOCIAL
+    ECONOMIC, MILITARY, POLITICAL, DISASTER, SCIENTIFIC, CULTURAL, DIPLOMATIC, ENVIRONMENTAL, SOCIAL
 }
 
 enum class EventSeverity {
-    MINOR,
-    MODERATE,
-    MAJOR,
-    CATASTROPHIC
+    MINOR, MODERATE, MAJOR, CATASTROPHIC
 }
 
 data class EventOption(
@@ -367,14 +375,5 @@ data class EventOption(
 )
 
 enum class GameOverReason {
-    BANKRUPTCY,
-    REVOLUTION,
-    INVASION,
-    TECH_FAILURE,
-    FAMINE,
-    ENVIRONMENTAL_COLLAPSE,
-    NUCLEAR_WINTER,
-    CIVIL_WAR,
-    ASSASSINATION,
-    COUP
+    BANKRUPTCY, REVOLUTION, INVASION, TECH_FAILURE, FAMINE, ENVIRONMENTAL_COLLAPSE, NUCLEAR_WINTER, CIVIL_WAR, ASSASSINATION, COUP
 }
