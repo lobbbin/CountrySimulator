@@ -907,6 +907,23 @@ object GameLogic {
         return Pair(newTheaters, events)
     }
 
+    private fun generateRandomResolution(year: Int, aiNations: List<AiNation>): UNResolution {
+        val types = UNResolutionType.values()
+        val type = types.random()
+        val targetNation = if (type != UNResolutionType.GLOBAL_INITIATIVE) aiNations.random() else null
+        return UNResolution(
+            id = "un_res_${year}_${(1..1000).random()}",
+            type = type,
+            targetNationId = targetNation?.id,
+            description = "UN Resolution on ${type.displayName}",
+            yearProposed = year
+        )
+    }
+
+    private val politicalEvents = listOf<GameEvent>()
+
+    private val diplomaticEvents = listOf<GameEvent>()
+
     private val militaryEvents = listOf(
         GameEvent(
             id = "arms_race",
