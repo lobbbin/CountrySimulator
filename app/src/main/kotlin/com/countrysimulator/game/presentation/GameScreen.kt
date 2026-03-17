@@ -25,19 +25,34 @@ import com.countrysimulator.game.domain.*
 fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
+    var isDarkTheme by remember { mutableStateOf(true) }
 
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = Color(0xFF3F51B5),
-            secondary = Color(0xFFFFC107),
-            tertiary = Color(0xFF009688),
-            background = Color(0xFF121212),
-            surface = Color(0xFF1E1E1E),
-            onPrimary = Color.White,
-            onSecondary = Color.Black,
-            onBackground = Color.White,
-            onSurface = Color.White
-        )
+        colorScheme = if (isDarkTheme) {
+            darkColorScheme(
+                primary = Color(0xFF3F51B5),
+                secondary = Color(0xFFFFC107),
+                tertiary = Color(0xFF009688),
+                background = Color(0xFF121212),
+                surface = Color(0xFF1E1E1E),
+                onPrimary = Color.White,
+                onSecondary = Color.Black,
+                onBackground = Color.White,
+                onSurface = Color.White
+            )
+        } else {
+            lightColorScheme(
+                primary = Color(0xFF3F51B5),
+                secondary = Color(0xFFFFC107),
+                tertiary = Color(0xFF009688),
+                background = Color(0xFFF5F5F5),
+                surface = Color(0xFFFFFFFF),
+                onPrimary = Color.White,
+                onSecondary = Color.Black,
+                onBackground = Color.Black,
+                onSurface = Color.Black
+            )
+        }
     ) {
         if (uiState.isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -56,6 +71,20 @@ fun CountrySimulatorApp(viewModel: GameViewModel = viewModel()) {
                 )
             } else {
                 Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text("Country Simulator") },
+                            actions = {
+                                IconButton(onClick = { isDarkTheme = !isDarkTheme }) {
+                                    Icon(
+                                        imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                        contentDescription = "Toggle theme",
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        )
+                    },
                     bottomBar = {
                         NavigationBar {
                             NavigationBarItem(

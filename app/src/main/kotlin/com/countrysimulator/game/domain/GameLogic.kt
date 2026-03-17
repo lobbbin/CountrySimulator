@@ -538,11 +538,11 @@ object GameLogic {
     }
 
     fun calculateTurnIncome(country: Country): Int {
-        val baseIncome = country.stats.population / 100000
+        val baseIncome = country.stats.population / 10000
         val economyMultiplier = country.stats.economy / 50.0
         val happinessFactor = country.stats.happiness / 100.0
         val techBonus = country.stats.technology / 200.0
-        return (baseIncome * economyMultiplier * happinessFactor * (1 + techBonus)).toInt().coerceAtLeast(0)
+        return (baseIncome * economyMultiplier * happinessFactor * (1 + techBonus)).toInt().coerceAtLeast(500)
     }
 
     fun calculateResourceProduction(resources: Resources, stats: CountryStats): Resources {
